@@ -1,0 +1,23 @@
+{
+  "name": "secure-ai-vault-server",
+  "version": "1.0.0",
+  "description": "Backend server for Secure AI Vault",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "firebase-admin": "^12.0.0",
+    "@google/generative-ai": "^0.2.1",
+    "multer": "^1.4.5-lts.1",
+    "express-validator": "^7.0.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
