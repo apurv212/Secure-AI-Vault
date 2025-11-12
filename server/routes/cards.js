@@ -2,6 +2,7 @@ const express = require('express');
 const admin = require('firebase-admin');
 const { body, validationResult } = require('express-validator');
 const { normalizeBankName } = require('../utils/bankNormalizer');
+const logger = require('../utils/secureLogger');
 const router = express.Router();
 
 const db = admin.firestore();
@@ -87,7 +88,7 @@ router.get('/', verifyAuth, async (req, res) => {
     
     res.json(cards);
   } catch (error) {
-    console.error('Error fetching cards:', error);
+    logger.error('Error fetching cards:', error.message);
     res.status(500).json({ error: 'Failed to fetch cards', message: error.message });
   }
 });
@@ -105,7 +106,7 @@ router.get('/:id', verifyAuth, async (req, res) => {
     }
     res.json({ id: doc.id, ...data });
   } catch (error) {
-    console.error('Error fetching card:', error);
+    logger.error('Error fetching card:', error.message);
     res.status(500).json({ error: 'Failed to fetch card' });
   }
 });
@@ -133,7 +134,7 @@ router.post('/', verifyAuth, [
     
     res.status(201).json({ id: doc.id, ...doc.data() });
   } catch (error) {
-    console.error('Error creating card:', error);
+    logger.error('Error creating card:', error.message);
     res.status(500).json({ error: 'Failed to create card' });
   }
 });
@@ -178,7 +179,7 @@ router.put('/:id', verifyAuth, async (req, res) => {
     const updated = await db.collection('cards').doc(req.params.id).get();
     res.json({ id: updated.id, ...updated.data() });
   } catch (error) {
-    console.error('Error updating card:', error);
+    logger.error('Error updating card:', error.message);
     res.status(500).json({ error: 'Failed to update card' });
   }
 });
@@ -197,7 +198,7 @@ router.delete('/:id', verifyAuth, async (req, res) => {
     await db.collection('cards').doc(req.params.id).delete();
     res.json({ message: 'Card deleted successfully' });
   } catch (error) {
-    console.error('Error deleting card:', error);
+    logger.error('Error deleting card:', error.message);
     res.status(500).json({ error: 'Failed to delete card' });
   }
 });
@@ -234,7 +235,7 @@ router.get('/banks/list', verifyAuth, async (req, res) => {
     const banks = Array.from(bankSet).sort();
     res.json(banks);
   } catch (error) {
-    console.error('Error fetching banks:', error);
+    logger.error('Error fetching banks:', error.message);
     res.status(500).json({ error: 'Failed to fetch banks', message: error.message });
   }
 });

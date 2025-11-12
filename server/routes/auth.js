@@ -1,5 +1,6 @@
 const express = require('express');
 const admin = require('firebase-admin');
+const logger = require('../utils/secureLogger');
 const router = express.Router();
 
 // Verify Firebase token
@@ -18,7 +19,7 @@ router.post('/verify', async (req, res) => {
       name: decodedToken.name
     });
   } catch (error) {
-    console.error('Token verification error:', error);
+    logger.error('Token verification error:', error.message);
     res.status(401).json({ error: 'Invalid token' });
   }
 });
