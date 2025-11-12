@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from '../../types/card';
+import { useAuth } from '../../contexts/AuthContext';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -19,6 +20,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   searchQuery = '',
   onSearchChange
 }) => {
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
   // Filter cards based on search query
   const filteredCards = searchQuery.trim() 
     ? cards.filter(card => {
@@ -33,11 +43,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="sidebar-overlay" onClick={onClose}>
       <div className="sidebar" onClick={(e) => e.stopPropagation()}>
-        <div className="sidebar-header">
-          <h2>My Cards ({cards.length})</h2>
+        {/* User Info Section */}
+        <div className="sidebar-user-info">
+          <div className="user-avatar">
+            {user?.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt={user.displayName || user.email || 'User'}
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  console.error('Image failed to load:', user.photoURL);
+                  e.currentTarget.style.display = 'none';
+                  const placeholder = e.currentTarget.parentElement?.querySelector('.user-avatar-placeholder');
+                  if (placeholder) {
+                    (placeholder as HTMLElement).style.display = 'flex';
+                  }
+                }}
+              />
+            ) : null}
+            <div 
+              className="user-avatar-placeholder" 
+              style={{ display: user?.photoURL ? 'none' : 'flex' }}
+            >
+              <span className="material-symbols-outlined">person</span>
+            </div>
+          </div>
+          <div className="user-details">
+            <h3>{user?.displayName || 'User'}</h3>
+            <p>{user?.email}</p>
+          </div>
           <button className="close-btn" onClick={onClose}>
             <span className="material-symbols-outlined">close</span>
           </button>
+        </div>
+
+        <div className="sidebar-header">
+          <h2>My Cards ({cards.length})</h2>
         </div>
         {onSearchChange && (
           <div className="sidebar-search">
@@ -91,6 +132,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ))}
             </div>
           )}
+        </div>
+
+        {/* Sign Out Button */}
+        <div className="sidebar-footer">
+          <button className="signout-btn" onClick={handleSignOut}>
+            <span className="material-symbols-outlined">logout</span>
+            <span>Sign Out</span>
+          </button>
         </div>
       </div>
     </div>

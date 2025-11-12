@@ -2,12 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cardApi } from '../../services/api';
 import { Card } from '../../types/card';
-import { Header } from '../layout/Header';
-import { CardUpload } from '../features/cards/CardUpload';
-import { CardItem } from '../features/cards/CardItem';
-import { Sidebar } from '../layout/Sidebar';
 import { Loading } from '../ui/Loading';
-import { CreditCard, Search, Filter } from 'lucide-react';
+import { Menu, Search, Plus, ArrowLeft } from 'lucide-react';
+import { CardItem } from '../features/cards/CardItem';
+import { CardUpload } from '../features/cards/CardUpload';
+import { ThemeToggle } from '../ui/ThemeToggle';
+import { Sidebar } from '../layout/Sidebar';
+import { maskCardNumber, maskPAN } from '../../utils/cardUtils';
+import { NetworkLogo } from '../ui/NetworkLogo';
+
+type ViewMode = 'list' | 'details' | 'add';
 
 export const Dashboard: React.FC = () => {
   const { idToken } = useAuth();
@@ -17,8 +21,10 @@ export const Dashboard: React.FC = () => {
   const [selectedBank, setSelectedBank] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [showSearchBar, setShowSearchBar] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [selectedCardId, setSelectedCardId] = useState<string | undefined>();
 
   const fetchCards = useCallback(async () => {
     if (!idToken) return;
@@ -34,11 +40,21 @@ export const Dashboard: React.FC = () => {
     }
   }, [idToken, selectedBank]);
 
+  const fetchBanks = useCallback(async () => {
+    if (!idToken) return;
+
+    try {
+      const fetchedBanks = await cardApi.getBanks(idToken);
+      setBanks(fetchedBanks);
+    } catch (error) {
+      console.error('Error fetching banks:', error);
+    }
+  }, [idToken]);
+
   // Filter cards based on search query
   useEffect(() => {
     let filtered = allCards;
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(card => {
@@ -59,17 +75,6 @@ export const Dashboard: React.FC = () => {
     setCards(filtered);
   }, [allCards, searchQuery]);
 
-  const fetchBanks = useCallback(async () => {
-    if (!idToken) return;
-
-    try {
-      const fetchedBanks = await cardApi.getBanks(idToken);
-      setBanks(fetchedBanks);
-    } catch (error) {
-      console.error('Error fetching banks:', error);
-    }
-  }, [idToken]);
-
   useEffect(() => {
     if (idToken) {
       fetchCards();
@@ -82,103 +87,265 @@ export const Dashboard: React.FC = () => {
     fetchBanks();
   };
 
-  const handleUploadComplete = (newCard: Card) => {
-    fetchCards();
-    fetchBanks();
-    // Scroll to the new card
-    if (newCard.id) {
-      setTimeout(() => {
-        const element = document.getElementById(`card-${newCard.id}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
+  const handleCardSelect = (card: Card) => {
+    setSelectedCard(card);
+    setViewMode('details');
+  };
+
+  const handleBack = () => {
+    if (viewMode === 'details' || viewMode === 'add') {
+      setViewMode('list');
+      setSelectedCard(null);
     }
   };
 
-  const handleCardSelect = (cardId: string) => {
-    setSelectedCardId(cardId);
-    const element = document.getElementById(`card-${cardId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Highlight the card
-      element.classList.add('highlighted');
-      setTimeout(() => {
-        element.classList.remove('highlighted');
-      }, 2000);
+  const handleAddCard = () => {
+    setViewMode('add');
+  };
+
+  const handleUploadComplete = () => {
+    fetchCards();
+    fetchBanks();
+    setViewMode('list');
+  };
+
+  const handleCardSelectFromSidebar = (cardId: string) => {
+    const card = allCards.find(c => c.id === cardId);
+    if (card) {
+      setSelectedCard(card);
+      setViewMode('details');
+      setShowSidebar(false);
     }
-    setShowSidebar(false);
+  };
+
+  const getDisplayNumber = (card: Card): string => {
+    if (card.type === 'pan' && card.cardNumber) {
+      return maskPAN(card.cardNumber);
+    }
+    if (card.cardNumber) {
+      return maskCardNumber(card.cardNumber);
+        }
+    return '';
+  };
+
+  const getCardTitle = (card: Card): string => {
+    return card.bank || card.cardName || 'Unknown';
+  };
+
+  const getCardSubtitle = (card: Card): string => {
+    const typeMap: Record<string, string> = {
+      credit: 'Credit Card',
+      debit: 'Debit Card',
+      aadhar: 'Aadhaar Card',
+      pan: 'PAN Card',
+      other: 'Other',
+    };
+    return typeMap[card.type] || card.type;
   };
 
   if (loading && cards.length === 0) {
     return <Loading />;
   }
 
+  // Mobile List View
+  if (viewMode === 'list') {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 dark:from-slate-950 dark:via-blue-950/30 dark:to-indigo-950/50">
-      <Header
-        selectedBank={selectedBank}
-        onBankChange={setSelectedBank}
-        banks={banks}
-        onSidebarToggle={() => setShowSidebar(!showSidebar)}
-        cardCount={allCards.length}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CardUpload onUploadComplete={handleUploadComplete} />
-        
-        {cards.length === 0 ? (
-          <div className="mt-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full">
-                {searchQuery || selectedBank ? (
-                  <Search className="w-12 h-12 text-slate-400" />
-                ) : (
-                  <CreditCard className="w-12 h-12 text-slate-400" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                  {searchQuery || selectedBank ? 'No cards found' : 'No cards yet'}
-                </h3>
-                <p className="text-slate-600 dark:text-slate-400 max-w-md">
-                  {searchQuery || selectedBank 
-                    ? `No cards found matching your search${searchQuery ? `: "${searchQuery}"` : ''}${selectedBank ? ` in ${selectedBank}` : ''}.`
-                    : 'Upload your first card to get started with secure card management!'
-                  }
-                </p>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        {/* Mobile Header */}
+        <header className="sticky top-0 z-50 bg-white dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+          <div className="px-4 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <button 
+                onClick={() => setShowSidebar(true)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Menu className="w-6 h-6 text-slate-700 dark:text-white" />
+              </button>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">My Wallet</h1>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <button 
+                  onClick={() => setShowSearchBar(!showSearchBar)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <Search className="w-6 h-6 text-slate-700 dark:text-white" />
+                </button>
               </div>
             </div>
+
+            {/* Search Bar */}
+            {showSearchBar && (
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search cards..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Filter Chips */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedBank('')}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedBank === ''
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                All
+              </button>
+              {banks.map((bank) => (
+                <button
+                  key={bank}
+                  onClick={() => setSelectedBank(bank)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedBank === bank
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {bank}
+                </button>
+              ))}
+            </div>
+          </div>
+        </header>
+
+        {/* Card List */}
+        <div className="px-4 py-6 space-y-4">
+          {cards.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-slate-400 dark:text-slate-500 mb-4">No cards found</div>
+              <p className="text-sm text-slate-500 dark:text-slate-600">
+                {searchQuery || selectedBank
+                  ? 'Try adjusting your filters'
+                  : 'Add your first card to get started'}
+              </p>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
-            {cards.map((card) => (
+            cards.map((card) => (
               <div 
                 key={card.id} 
-                id={`card-${card.id}`}
-                className="flex"
+                onClick={() => handleCardSelect(card)}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-sm"
               >
-                <CardItem
-                  card={card}
-                  onUpdate={handleCardUpdate}
-                />
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+                      {getCardTitle(card)}
+                    </h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{getCardSubtitle(card)}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <NetworkLogo network={card.type === 'credit' || card.type === 'debit' ? 'mastercard' : card.type} />
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Menu functionality here
+                      }}
+                      className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                    >
+                      <svg className="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 16 16">
+                        <circle cx="8" cy="3" r="1.5" />
+                        <circle cx="8" cy="8" r="1.5" />
+                        <circle cx="8" cy="13" r="1.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {getDisplayNumber(card) && (
+                  <div className="font-mono text-base text-slate-700 dark:text-slate-300 mb-2">
+                    {getDisplayNumber(card)}
+                  </div>
+                )}
+
+                {card.cardHolderName && (
+                  <div className="text-sm text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {card.cardHolderName}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            ))
+          )}
+        </div>
+
+        {/* FAB */}
+        <button
+          onClick={handleAddCard}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg flex items-center justify-center transition-colors z-50"
+        >
+          <Plus className="w-6 h-6 text-white" />
+        </button>
+
+        {/* Bottom Safe Area */}
+        <div className="h-20" />
+
+        {/* Sidebar */}
+        {showSidebar && (
+          <Sidebar
+            cards={allCards}
+            selectedCardId={selectedCard?.id}
+            onCardSelect={handleCardSelectFromSidebar}
+            onClose={() => setShowSidebar(false)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
         )}
       </div>
-      {showSidebar && (
-        <Sidebar
-          cards={allCards}
-          selectedCardId={selectedCardId}
-          onCardSelect={handleCardSelect}
-          onClose={() => setShowSidebar(false)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
-      )}
+    );
+  }
+
+  // Details View
+  if (viewMode === 'details' && selectedCard) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <header className="sticky top-0 z-50 bg-white dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+          <div className="px-4 py-4 flex items-center gap-4">
+            <button
+              onClick={handleBack}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-slate-700 dark:text-white" />
+            </button>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Card Details</h1>
+          </div>
+        </header>
+        <div className="p-4">
+          <CardItem card={selectedCard} onUpdate={handleCardUpdate} />
+        </div>
+      </div>
+    );
+  }
+
+  // Add Card View
+  if (viewMode === 'add') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+        <header className="sticky top-0 z-50 bg-white dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+          <div className="px-4 py-4 flex items-center gap-4">
+            <button
+              onClick={handleBack}
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-slate-700 dark:text-white" />
+            </button>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Add New Card</h1>
+          </div>
+        </header>
+        <div className="p-4">
+          <CardUpload onUploadComplete={handleUploadComplete} />
+        </div>
     </div>
   );
-};
+  }
 
+  return null;
+};

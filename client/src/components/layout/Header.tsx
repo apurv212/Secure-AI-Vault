@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import { Shield, Search, Menu, LogOut, User, Filter } from 'lucide-react';
 
 interface HeaderProps {
@@ -101,8 +102,10 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* User Menu */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
             <div className="hidden sm:flex items-center gap-3">
+              <Separator orientation="vertical" className="h-6" />
               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
                 <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 <span className="text-sm text-slate-700 dark:text-slate-300 max-w-[150px] truncate">

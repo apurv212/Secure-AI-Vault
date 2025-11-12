@@ -1,4 +1,6 @@
 import React from 'react';
+import { Provider } from 'react-redux';
+import { store } from './store';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/pages/Login';
 import { Dashboard } from './components/pages/Dashboard';
@@ -20,9 +22,11 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
+    <Provider store={store}>
     <AuthProvider>
       <AppContent />
     </AuthProvider>
+    </Provider>
   );
 }
 
