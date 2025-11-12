@@ -1,8 +1,8 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
-import { Loading } from './components/Loading';
+import { Login } from './components/pages/Login';
+import { Dashboard } from './components/pages/Dashboard';
+import { Loading } from './components/ui/Loading';
 import './App.css';
 
 const AppContent: React.FC = () => {

@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { uploadImage } from '../utils/storage';
-import { cardApi, extractApi } from '../services/api';
-import { CardType, Card } from '../types/card';
-import { ProgressBar } from './ProgressBar';
+import { useAuth } from '../../../contexts/AuthContext';
+import { uploadImage } from '../../../utils/storage';
+import { cardApi, extractApi } from '../../../services/api';
+import { CardType, Card } from '../../../types/card';
+import { ProgressBar } from '../../ui/ProgressBar';
 import './CardUpload.css';
 
 interface CardUploadProps {

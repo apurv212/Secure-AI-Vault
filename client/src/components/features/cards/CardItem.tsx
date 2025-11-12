@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardType } from '../types/card';
-import { useAuth } from '../contexts/AuthContext';
-import { cardApi, extractApi } from '../services/api';
-import { Skeleton } from './Skeleton';
+import { Card, CardType } from '../../../types/card';
+import { useAuth } from '../../../contexts/AuthContext';
+import { cardApi, extractApi } from '../../../services/api';
+import { Skeleton } from '../../ui/Skeleton';
 import './CardItem.css';
 
 interface CardItemProps {

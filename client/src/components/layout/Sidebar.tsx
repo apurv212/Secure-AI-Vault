@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../types/card';
+import { Card } from '../../types/card';
 import './Sidebar.css';
 
 interface SidebarProps {

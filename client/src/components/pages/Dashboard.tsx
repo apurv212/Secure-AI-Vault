@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { cardApi } from '../services/api';
-import { Card } from '../types/card';
-import { Header } from './Header';
-import { CardUpload } from './CardUpload';
-import { CardItem } from './CardItem';
-import { Sidebar } from './Sidebar';
-import { Loading } from './Loading';
+import { useAuth } from '../../contexts/AuthContext';
+import { cardApi } from '../../services/api';
+import { Card } from '../../types/card';
+import { Header } from '../layout/Header';
+import { CardUpload } from '../features/cards/CardUpload';
+import { CardItem } from '../features/cards/CardItem';
+import { Sidebar } from '../layout/Sidebar';
+import { Loading } from '../ui/Loading';
 import './Dashboard.css';
 
 export const Dashboard: React.FC = () => {
