@@ -13,9 +13,21 @@
 1. In Firebase Console, go to **Authentication**
 2. Click "Get started"
 3. Go to **Sign-in method** tab
-4. Enable **Google** provider
-5. Add your project support email
-6. Save
+
+### Enable Email/Password Authentication
+
+4. Click on **Email/Password** provider
+5. Enable the **Email/Password** toggle (first option)
+6. Click **Save**
+
+### Enable Google Authentication
+
+7. Click on **Google** provider
+8. Enable the toggle
+9. Add your project support email
+10. Click **Save**
+
+**Note**: Both authentication methods are now enabled. Users can sign in with either Google or Email/Password.
 
 ## Step 3: Create Firestore Database
 
@@ -126,4 +138,32 @@ service firebase.storage {
 - Users can only access their own cards
 - Only authenticated users can read/write data
 - Each user's files are isolated in their own folder
+
+## Authentication Methods Summary
+
+Your Secure AI Vault now supports **two authentication methods**:
+
+### 1. Email/Password Authentication
+- Users can sign up with their email and password
+- Password must be at least 6 characters long
+- Users can optionally provide their name during signup
+- Secure password-based authentication managed by Firebase
+
+### 2. Google Sign-In
+- One-click authentication using Google account
+- No need to remember passwords
+- Faster sign-in experience
+- Leverages Google's security infrastructure
+
+### User Experience
+- Users can toggle between "Sign In" and "Sign Up" modes on the login page
+- Clear error messages for common authentication issues
+- Both methods provide the same level of security and access to the vault
+- Users authenticated with either method can access all features
+
+### Firebase Console Verification
+To verify your authentication setup:
+1. Go to Firebase Console → Authentication
+2. You should see both "Email/Password" and "Google" enabled under Sign-in methods
+3. After users sign up, you'll see them listed in the "Users" tab
 
