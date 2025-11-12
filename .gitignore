@@ -1,21 +1,27 @@
+# Dependencies
 node_modules/
-client/node_modules/
-server/node_modules/
+
+# Environment variables
 .env
-client/.env
-server/.env
+*.env.local
+
+# Firebase sensitive data
 server/serviceAccountKey.json
+
+# Logs
 *.log
+npm-debug.log*
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Build outputs
 build/
 dist/
+
+# IDE
 .vscode/
 .idea/
-
-
-FIREBASE_SETUP.md
-FEATURES.md
-FEATURES.md
-FOLDER_STRUCTURE_CHANGES.md
-
-client/.env
+*.swp
+*.swo

@@ -15,12 +15,13 @@ A secure web application for storing and managing card details (Credit/Debit, Aa
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React + TypeScript
+- **Frontend**: React + TypeScript + Vite
 - **Backend**: Node.js + Express
 - **Database**: Firebase Firestore
 - **Storage**: Firebase Storage
 - **Authentication**: Firebase Auth
 - **AI**: gemini, deepseek, marker
+- **UI**: Tailwind CSS + shadcn/ui
 
 
 ```
@@ -29,13 +30,13 @@ A secure web application for storing and managing card details (Credit/Debit, Aa
 
 **Client** (`client/.env`):
 ```env
-REACT_APP_FIREBASE_API_KEY=your_api_key
-REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-REACT_APP_FIREBASE_PROJECT_ID=your_project_id
-REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-REACT_APP_FIREBASE_APP_ID=your_app_id
-REACT_APP_API_URL=http://localhost:5000/api
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_API_URL=http://localhost:5000/api
 ```
 
 **Server** (`server/.env`):
@@ -58,7 +59,7 @@ npm run dev
 cd server && npm run dev
 
 # Frontend (port 3000)
-cd client && npm start
+cd client && npm run dev
 ```
 
 
