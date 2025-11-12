@@ -186,22 +186,70 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
   }
 
   return (
-    <div className="card-upload">
-      <h2>Add New Card</h2>
-      <div className="upload-options">
-        <button onClick={handleGalleryUpload} className="upload-option">
-          <span className="material-symbols-outlined">folder_open</span>
-          <span className="upload-option-text">Upload from Gallery</span>
+    <div className="space-y-4">
+      {/* Upload from Gallery */}
+      <button
+        onClick={handleGalleryUpload}
+        className="w-full bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-colors shadow-sm"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-blue-600 rounded-xl">
+            <span className="material-symbols-outlined text-white text-2xl">folder_open</span>
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Upload from Gallery</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Select an existing photo of your card.</p>
+          </div>
+          <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
         </button>
-        <button onClick={handleCameraCapture} className="upload-option">
-          <span className="material-symbols-outlined">photo_camera</span>
-          <span className="upload-option-text">Take Photo</span>
+
+      {/* Take Photo */}
+      <button
+        onClick={handleCameraCapture}
+        className="w-full bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-colors shadow-sm"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-blue-600 rounded-xl">
+            <span className="material-symbols-outlined text-white text-2xl">photo_camera</span>
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Take Photo</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Use your camera to scan your card instantly.</p>
+          </div>
+          <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
         </button>
-        <button onClick={handleManualEntry} className="upload-option">
-          <span className="material-symbols-outlined">edit_note</span>
-          <span className="upload-option-text">Enter Manually</span>
+
+      {/* Enter Manually */}
+      <button
+        onClick={handleManualEntry}
+        className="w-full bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 transition-colors shadow-sm"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-blue-600 rounded-xl">
+            <span className="material-symbols-outlined text-white text-2xl">edit_note</span>
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Enter Manually</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Type in your card details yourself.</p>
+          </div>
+          <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
         </button>
+
+      {/* Security Message */}
+      <div className="text-center pt-4">
+        <p className="text-sm text-slate-500 dark:text-slate-600">Your data is encrypted and stored securely.</p>
       </div>
+
+      {/* Hidden File Inputs */}
       <input
         ref={fileInputRef}
         type="file"
