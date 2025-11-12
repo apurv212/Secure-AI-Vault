@@ -152,12 +152,12 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
             {cards.map((card) => (
               <div 
                 key={card.id} 
                 id={`card-${card.id}`}
-                className="transition-all duration-300 hover:scale-[1.02]"
+                className="flex"
               >
                 <CardItem
                   card={card}

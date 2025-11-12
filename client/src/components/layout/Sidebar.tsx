@@ -35,7 +35,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="sidebar" onClick={(e) => e.stopPropagation()}>
         <div className="sidebar-header">
           <h2>My Cards ({cards.length})</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}>
+            <span className="material-symbols-outlined">close</span>
+          </button>
         </div>
         {onSearchChange && (
           <div className="sidebar-search">
@@ -46,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onChange={(e) => onSearchChange(e.target.value)}
               className="sidebar-search-input"
             />
-            <span className="sidebar-search-icon">🔍</span>
+            <span className="material-symbols-outlined sidebar-search-icon">search</span>
           </div>
         )}
         <div className="sidebar-content">
@@ -67,9 +69,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <img src={card.imageUrl} alt={card.cardName || card.type} />
                     ) : (
                       <div className="card-placeholder">
-                        {card.type === 'credit' || card.type === 'debit' ? '💳' : 
-                         card.type === 'aadhar' ? '🆔' : 
-                         card.type === 'pan' ? '📄' : '📋'}
+                        <span className="material-symbols-outlined">
+                          {card.type === 'credit' || card.type === 'debit' ? 'credit_card' : 
+                           card.type === 'aadhar' ? 'badge' : 
+                           card.type === 'pan' ? 'description' : 'folder'}
+                        </span>
                       </div>
                     )}
                   </div>

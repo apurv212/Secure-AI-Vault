@@ -190,16 +190,16 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
       <h2>Add New Card</h2>
       <div className="upload-options">
         <button onClick={handleGalleryUpload} className="upload-option">
-          <span>📁</span>
-          Upload from Gallery
+          <span className="material-symbols-outlined">folder_open</span>
+          <span className="upload-option-text">Upload from Gallery</span>
         </button>
         <button onClick={handleCameraCapture} className="upload-option">
-          <span>📷</span>
-          Take Photo
+          <span className="material-symbols-outlined">photo_camera</span>
+          <span className="upload-option-text">Take Photo</span>
         </button>
         <button onClick={handleManualEntry} className="upload-option">
-          <span>✏️</span>
-          Enter Manually
+          <span className="material-symbols-outlined">edit_note</span>
+          <span className="upload-option-text">Enter Manually</span>
         </button>
       </div>
       <input

@@ -16,6 +16,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
   const [editData, setEditData] = useState<Partial<Card>>({
     cardName: card.cardName || '',
     cardNumber: card.cardNumber || '',
@@ -40,6 +41,26 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
       });
     }
   }, [card, isEditing]);
+
+  // Handle ESC key to close image modal
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isImageExpanded) {
+        setIsImageExpanded(false);
+      }
+    };
+
+    if (isImageExpanded) {
+      document.addEventListener('keydown', handleEscKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isImageExpanded]);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -174,7 +195,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
             className="re-extract-btn"
             disabled={reExtracting}
           >
-            <span className="icon">🔄</span> {reExtracting ? 'Extracting...' : 'Extract Again'}
+            <span className="material-symbols-outlined">refresh</span> {reExtracting ? 'Extracting...' : 'Extract Again'}
           </button>
         )}
       </div>
@@ -343,14 +364,22 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
   }
 
   return (
-    <div className="card-item">
-      {card.imageUrl && (
-        <div className="card-image">
-          <img src={card.imageUrl} alt={card.cardName || card.type} />
-        </div>
-      )}
-      
-      <div className="card-details">
+    <>
+      <div className="card-item">
+        {card.imageUrl && (
+          <div className="card-image">
+            <img src={card.imageUrl} alt={card.cardName || card.type} />
+            <button 
+              className="expand-image-btn" 
+              onClick={() => setIsImageExpanded(true)}
+              title="Expand image"
+            >
+              <span className="material-symbols-outlined">open_in_full</span>
+            </button>
+          </div>
+        )}
+        
+        <div className="card-details">
         <div className="card-header">
           <h3>{card.cardName || card.type.toUpperCase()}</h3>
           {card.bank && <span className="bank-badge">{card.bank}</span>}
@@ -368,7 +397,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
                     className="copy-btn"
                     title="Copy"
                   >
-                    <span className="icon">📋</span>
+                    <span className="material-symbols-outlined">content_copy</span>
                     {copied === 'number' && <span className="copied-indicator">Copied!</span>}
                   </button>
                 </div>
@@ -385,7 +414,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
                     className="copy-btn"
                     title="Copy"
                   >
-                    <span className="icon">📋</span>
+                    <span className="material-symbols-outlined">content_copy</span>
                     {copied === 'name' && <span className="copied-indicator">Copied!</span>}
                   </button>
                 </div>
@@ -402,7 +431,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
                     className="copy-btn"
                     title="Copy"
                   >
-                    <span className="icon">📋</span>
+                    <span className="material-symbols-outlined">content_copy</span>
                     {copied === 'expiry' && <span className="copied-indicator">Copied!</span>}
                   </button>
                 </div>
@@ -419,7 +448,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
                     className="copy-btn"
                     title="Copy"
                   >
-                    <span className="icon">📋</span>
+                    <span className="material-symbols-outlined">content_copy</span>
                     {copied === 'cvv' && <span className="copied-indicator">Copied!</span>}
                   </button>
                 </div>
@@ -448,7 +477,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
             className="re-extract-btn"
             disabled={reExtracting}
           >
-            <span className="icon">🔄</span> {reExtracting ? 'Extracting...' : 'Extract Again'}
+            <span className="material-symbols-outlined">refresh</span> {reExtracting ? 'Extracting...' : 'Extract Again'}
           </button>
         )}
 
@@ -456,21 +485,38 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
           <div className="error-message">
             <p>Extraction failed. Please try again.</p>
             <button onClick={handleReExtract} className="re-extract-btn">
-              <span className="icon">🔄</span> Try Again
+              <span className="material-symbols-outlined">refresh</span> Try Again
             </button>
           </div>
         )}
 
         <div className="card-actions">
           <button onClick={handleEdit} className="edit-btn" title="Edit card">
-            <span className="icon">✏️</span> Edit
+            <span className="material-symbols-outlined">edit</span> Edit
           </button>
           <button onClick={handleDelete} className="delete-btn" title="Delete card">
-            <span className="icon">🗑️</span> Delete
+            <span className="material-symbols-outlined">delete</span> Delete
           </button>
         </div>
       </div>
     </div>
+
+    {/* Image Expansion Modal */}
+    {isImageExpanded && card.imageUrl && (
+      <div className="image-modal-overlay" onClick={() => setIsImageExpanded(false)}>
+        <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+          <button 
+            className="image-modal-close" 
+            onClick={() => setIsImageExpanded(false)}
+            title="Close (ESC)"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+          <img src={card.imageUrl} alt={card.cardName || card.type} />
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

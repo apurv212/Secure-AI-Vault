@@ -56,8 +56,9 @@
   position: absolute;
   left: 1.75rem;
   top: 1.5rem;
-  color: #666;
+  color: #64748b;
   pointer-events: none;
+  font-size: 1.25rem;
 }
 
 .sidebar-header h2 {
@@ -69,21 +70,26 @@
 .close-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
   cursor: pointer;
-  color: #666;
+  color: #64748b;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.close-btn .material-symbols-outlined {
+  font-size: 1.5rem;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 .close-btn:hover {
-  background: #f0f0f0;
+  background: #f1f5f9;
+  color: #1e293b;
 }
 
 .sidebar-content {
@@ -144,7 +150,17 @@
 }
 
 .card-placeholder {
-  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.card-placeholder .material-symbols-outlined {
+  font-size: 1.75rem;
+  color: #667eea;
+  font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
 }
 
 .card-item-info {
