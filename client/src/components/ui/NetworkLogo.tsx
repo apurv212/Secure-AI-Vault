@@ -59,9 +59,20 @@ export const NetworkLogo: React.FC<NetworkLogoProps> = ({ network, className = '
   // RuPay Logo
   if (normalizedNetwork === 'rupay') {
     return (
-      <div className={`${className} bg-white rounded flex items-center justify-center px-2`}>
+      <div className={`${className} bg-gradient-to-r from-green-600 to-blue-600 rounded flex items-center justify-center px-2`}>
         <svg viewBox="0 0 48 16" className="w-full h-full">
-          <text x="0" y="12" fill="#097939" fontWeight="bold" fontSize="10" fontFamily="Arial">RuPay</text>
+          <text x="2" y="12" fill="white" fontWeight="bold" fontSize="9" fontFamily="Arial, sans-serif">RuPay</text>
+        </svg>
+      </div>
+    );
+  }
+
+  // Discover Logo
+  if (normalizedNetwork === 'discover') {
+    return (
+      <div className={`${className} bg-orange-500 rounded flex items-center justify-center px-2`}>
+        <svg viewBox="0 0 48 16" className="w-full h-full">
+          <text x="0" y="12" fill="white" fontWeight="bold" fontSize="8" fontFamily="Arial">DISCOVER</text>
         </svg>
       </div>
     );

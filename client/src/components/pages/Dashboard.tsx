@@ -8,7 +8,7 @@ import { CardItem } from '../features/cards/CardItem';
 import { CardUpload } from '../features/cards/CardUpload';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Sidebar } from '../layout/Sidebar';
-import { maskCardNumber, maskPAN } from '../../utils/cardUtils';
+import { maskCardNumber, maskPAN, getCardNetwork } from '../../utils/cardUtils';
 import { NetworkLogo } from '../ui/NetworkLogo';
 
 type ViewMode = 'list' | 'details' | 'add';
@@ -143,6 +143,15 @@ export const Dashboard: React.FC = () => {
     return typeMap[card.type] || card.type;
   };
 
+  const getNetworkForCard = (card: Card): string => {
+    // For credit/debit cards, detect network from card number
+    if ((card.type === 'credit' || card.type === 'debit') && card.cardNumber) {
+      return getCardNetwork(card.cardNumber);
+    }
+    // For other card types, use the type itself
+    return card.type;
+  };
+
   if (loading && cards.length === 0) {
     return <Loading />;
   }
@@ -228,9 +237,34 @@ export const Dashboard: React.FC = () => {
                   ? 'Try adjusting your filters'
                   : 'Add your first card to get started'}
               </p>
-          </div>
-        ) : (
-            cards.map((card) => (
+            </div>
+          ) : (
+            cards.map((card) => {
+              const isExtracting = card.extractionStatus === 'processing' || card.extractionStatus === 'pending';
+              
+              if (isExtracting) {
+                return (
+                  <div
+                    key={card.id}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm animate-pulse"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-32 mb-2"></div>
+                        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24"></div>
+                      </div>
+                      <div className="w-12 h-8 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                    </div>
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-48 mb-2"></div>
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-36"></div>
+                    <div className="mt-3 text-xs text-blue-600 dark:text-blue-400">
+                      Extracting card details...
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
               <div 
                 key={card.id} 
                 onClick={() => handleCardSelect(card)}
@@ -244,7 +278,7 @@ export const Dashboard: React.FC = () => {
                     <p className="text-sm text-slate-500 dark:text-slate-400">{getCardSubtitle(card)}</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <NetworkLogo network={card.type === 'credit' || card.type === 'debit' ? 'mastercard' : card.type} />
+                    <NetworkLogo network={getNetworkForCard(card)} />
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -273,7 +307,8 @@ export const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
 

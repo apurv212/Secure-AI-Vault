@@ -4,6 +4,7 @@ import { uploadImage } from '../../../utils/storage';
 import { cardApi, extractApi } from '../../../services/api';
 import { CardType, Card } from '../../../types/card';
 import { ProgressBar } from '../../ui/ProgressBar';
+import { ManualEntryModal, ManualEntryData } from './ManualEntryModal';
 import './CardUpload.css';
 
 interface CardUploadProps {
@@ -18,6 +19,7 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractProgress, setExtractProgress] = useState(0);
   const [currentCard, setCurrentCard] = useState<Card | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,26 +136,48 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
   };
 
   const handleManualEntry = () => {
-    const type = prompt('Enter card type (credit/debit/aadhar/pan/other):') as CardType;
-    if (!type || !['credit', 'debit', 'aadhar', 'pan', 'other'].includes(type)) {
-      alert('Invalid card type');
-      return;
-    }
+    setShowManualModal(true);
+  };
 
-    const cardName = prompt('Enter card name (optional):') || '';
-    
+  const handleManualSubmit = async (data: ManualEntryData) => {
     if (!user || !idToken) return;
 
-    cardApi.create(idToken, {
-      userId: user.uid,
-      type,
-      cardName: cardName || undefined
-    }).then((card) => {
+    try {
+      let cardData: any = {
+        userId: user.uid,
+      };
+
+      if (data.entryType === 'card') {
+        // Card entry
+        cardData = {
+          ...cardData,
+          type: data.cardType,
+          cardNumber: data.cardNumber?.replace(/\s/g, ''),
+          cardHolderName: data.cardHolderName,
+          expiryDate: data.expiryDate,
+          cvv: data.cvv,
+          bank: data.bankName,
+          extractionStatus: 'completed',
+        };
+      } else {
+        // Document entry
+        cardData = {
+          ...cardData,
+          type: data.documentType === 'aadhar' ? 'aadhar' : data.documentType === 'pan' ? 'pan' : 'other',
+          cardName: data.documentName,
+          cardNumber: data.idNumber,
+          cardHolderName: data.notes,
+          extractionStatus: 'completed',
+        };
+      }
+
+      const card = await cardApi.create(idToken, cardData);
+      setShowManualModal(false);
       onUploadComplete(card);
-    }).catch((error) => {
-      console.error('Error creating card:', error);
-      alert('Failed to create card. Please try again.');
-    });
+    } catch (error) {
+      console.error('Error creating entry:', error);
+      alert('Failed to create entry. Please try again.');
+    }
   };
 
   if (uploading || extracting) {
@@ -265,6 +289,14 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
+
+      {/* Manual Entry Modal */}
+      {showManualModal && (
+        <ManualEntryModal
+          onClose={() => setShowManualModal(false)}
+          onSubmit={handleManualSubmit}
+        />
+      )}
     </div>
   );
 };
