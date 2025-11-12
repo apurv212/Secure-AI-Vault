@@ -57,6 +57,14 @@ export const cardApi = {
     return response.data;
   },
 
+  deleteCVV: async (token: string | null, id: string) => {
+    const response = await axios.delete(
+      `${API_URL}/cards/${id}/cvv`,
+      getAuthHeaders(token)
+    );
+    return response.data;
+  },
+
   getBanks: async (token: string | null) => {
     const response = await axios.get(
       `${API_URL}/cards/banks/list`,

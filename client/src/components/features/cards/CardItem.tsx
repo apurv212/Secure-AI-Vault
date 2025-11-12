@@ -113,6 +113,26 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
     }
   };
 
+  const handleDeleteCVV = async () => {
+    if (!idToken || !card.id) return;
+
+    const confirmed = window.confirm(
+      '⚠️ Delete CVV only?\n\n' +
+      'This will remove the CVV but keep all other card details.\n\n' +
+      'You can add it again later if needed.'
+    );
+    if (!confirmed) return;
+
+    try {
+      await cardApi.deleteCVV(idToken, card.id);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Delete CVV error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      alert(`Failed to delete CVV: ${errorMessage}`);
+    }
+  };
+
   const handleEdit = () => {
     setEditData({
       cardName: card.cardName || '',
@@ -166,9 +186,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
       await cardApi.update(idToken, card.id, updateData);
       setIsEditing(false);
       onUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update error:', error);
-      alert('Failed to update card. Please try again.');
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      console.error('Error details:', error.response?.data);
+      alert(`Failed to update card: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
@@ -446,10 +468,18 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
                   <button
                     onClick={() => copyToClipboard(card.cvv!, 'cvv')}
                     className="copy-btn"
-                    title="Copy"
+                    title="Copy CVV"
                   >
                     <span className="material-symbols-outlined">content_copy</span>
                     {copied === 'cvv' && <span className="copied-indicator">Copied!</span>}
+                  </button>
+                  <button
+                    onClick={handleDeleteCVV}
+                    className="copy-btn"
+                    style={{ color: '#DC2626', marginLeft: '4px' }}
+                    title="Delete CVV (Security - recommended)"
+                  >
+                    <span className="material-symbols-outlined">delete</span>
                   </button>
                 </div>
               </div>

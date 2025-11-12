@@ -4,7 +4,11 @@ const admin = require('firebase-admin');
 const fetch = require('node-fetch');
 const { normalizeExtractedData } = require('../utils/bankNormalizer');
 const logger = require('../utils/secureLogger');
+const { encryptCardData } = require('../utils/encryption');
 const router = express.Router();
+
+// Check if encryption is enabled
+const ENCRYPTION_ENABLED = !!process.env.ENCRYPTION_KEY;
 
 if (!process.env.GEMINI_API_KEY) {
   logger.warn('⚠️  GEMINI_API_KEY not set. Card extraction will not work.');
@@ -237,8 +241,32 @@ Rules:
     // Update card in database if cardId provided
     if (cardId) {
       const db = admin.firestore();
+      
+      let dataToStore = { ...extractedData };
+      
+      // Encrypt sensitive fields if encryption is enabled
+      if (ENCRYPTION_ENABLED) {
+        try {
+          dataToStore = encryptCardData(dataToStore);
+          logger.info('Extracted card data encrypted before storage');
+        } catch (encryptError) {
+          logger.error('Encryption failed for extracted data:', encryptError.message);
+          // Don't store if encryption fails
+          return res.status(500).json({ 
+            error: 'Failed to encrypt extracted data',
+            message: 'Encryption is required but failed.'
+          });
+        }
+      }
+      
+      // Add CVV warning if CVV was extracted
+      if (extractedData.cvv) {
+        dataToStore.cvvStoredAt = admin.firestore.FieldValue.serverTimestamp();
+        dataToStore.cvvWarningShown = false;
+      }
+      
       await db.collection('cards').doc(cardId).update({
-        ...extractedData,
+        ...dataToStore,
         extractedAt: admin.firestore.FieldValue.serverTimestamp(),
         extractionStatus: 'completed',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()

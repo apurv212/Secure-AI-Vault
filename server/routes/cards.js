@@ -3,9 +3,13 @@ const admin = require('firebase-admin');
 const { body, validationResult } = require('express-validator');
 const { normalizeBankName } = require('../utils/bankNormalizer');
 const logger = require('../utils/secureLogger');
+const { encryptCardData, decryptCardData } = require('../utils/encryption');
 const router = express.Router();
 
 const db = admin.firestore();
+
+// Check if encryption is enabled
+const ENCRYPTION_ENABLED = !!process.env.ENCRYPTION_KEY;
 
 // Middleware to verify authentication
 const verifyAuth = async (req, res, next) => {
@@ -74,10 +78,30 @@ router.get('/', verifyAuth, async (req, res) => {
     }
     
     const snapshot = await query.get();
-    let cards = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    let cards = snapshot.docs.map(doc => {
+      const data = doc.data();
+      let cardData = { id: doc.id, ...data };
+      
+      // Decrypt sensitive fields if encryption is enabled
+      if (ENCRYPTION_ENABLED) {
+        try {
+          cardData = { id: doc.id, ...decryptCardData(data) };
+        } catch (decryptError) {
+          logger.error('Decryption failed for card:', doc.id);
+          // Return card without sensitive data if decryption fails
+          cardData = { 
+            id: doc.id, 
+            ...data,
+            cardNumber: null,
+            cvv: null,
+            expiryDate: null,
+            _decryptionFailed: true
+          };
+        }
+      }
+      
+      return cardData;
+    });
     
     // Sort by createdAt in memory (fallback if index not created)
     cards.sort((a, b) => {
@@ -104,7 +128,20 @@ router.get('/:id', verifyAuth, async (req, res) => {
     if (data.userId !== req.user.uid) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
-    res.json({ id: doc.id, ...data });
+    
+    // Decrypt sensitive fields if encryption is enabled
+    let cardData = { id: doc.id, ...data };
+    if (ENCRYPTION_ENABLED) {
+      try {
+        cardData = { id: doc.id, ...decryptCardData(data) };
+      } catch (decryptError) {
+        logger.error('Decryption failed for card:', doc.id);
+        // Return card without sensitive data if decryption fails
+        cardData = { id: doc.id, ...data, cardNumber: null, cvv: null };
+      }
+    }
+    
+    res.json(cardData);
   } catch (error) {
     logger.error('Error fetching card:', error.message);
     res.status(500).json({ error: 'Failed to fetch card' });
@@ -122,17 +159,47 @@ router.post('/', verifyAuth, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const cardData = {
+    let cardData = {
       ...req.body,
       userId: req.user.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
 
+    // Encrypt sensitive fields if encryption is enabled
+    if (ENCRYPTION_ENABLED) {
+      try {
+        cardData = encryptCardData(cardData);
+        logger.info('Card data encrypted before storage');
+      } catch (encryptError) {
+        logger.error('Encryption failed:', encryptError.message);
+        return res.status(500).json({ 
+          error: 'Failed to encrypt card data',
+          message: 'Encryption is required but failed. Please check server configuration.'
+        });
+      }
+    }
+
+    // Add CVV warning timestamp if CVV is present
+    if (req.body.cvv) {
+      cardData.cvvStoredAt = admin.firestore.FieldValue.serverTimestamp();
+      cardData.cvvWarningShown = false; // Frontend should show warning
+    }
+
     const docRef = await db.collection('cards').add(cardData);
     const doc = await docRef.get();
     
-    res.status(201).json({ id: doc.id, ...doc.data() });
+    // Decrypt for response
+    let responseData = { id: doc.id, ...doc.data() };
+    if (ENCRYPTION_ENABLED) {
+      try {
+        responseData = { id: doc.id, ...decryptCardData(doc.data()) };
+      } catch (decryptError) {
+        logger.error('Decryption failed for response');
+      }
+    }
+    
+    res.status(201).json(responseData);
   } catch (error) {
     logger.error('Error creating card:', error.message);
     res.status(500).json({ error: 'Failed to create card' });
@@ -150,7 +217,7 @@ router.put('/:id', verifyAuth, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const updateData = { ...req.body };
+    let updateData = { ...req.body }; // Changed to 'let' for encryption reassignment
 
     // Normalize bank name if provided
     if (updateData.bank) {
@@ -171,16 +238,82 @@ router.put('/:id', verifyAuth, async (req, res) => {
       }
     }
 
+    // Encrypt sensitive fields if encryption is enabled
+    if (ENCRYPTION_ENABLED) {
+      try {
+        updateData = encryptCardData(updateData);
+      } catch (encryptError) {
+        logger.error('Encryption failed:', encryptError.message);
+        return res.status(500).json({ 
+          error: 'Failed to encrypt card data',
+          message: 'Encryption is required but failed.'
+        });
+      }
+    }
+
+    // Update CVV timestamp if CVV is being updated
+    if (req.body.cvv) {
+      updateData.cvvStoredAt = admin.firestore.FieldValue.serverTimestamp();
+      updateData.cvvWarningShown = false;
+    }
+
     await db.collection('cards').doc(req.params.id).update({
       ...updateData,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     const updated = await db.collection('cards').doc(req.params.id).get();
-    res.json({ id: updated.id, ...updated.data() });
+    
+    // Decrypt for response
+    let responseData = { id: updated.id, ...updated.data() };
+    if (ENCRYPTION_ENABLED) {
+      try {
+        responseData = { id: updated.id, ...decryptCardData(updated.data()) };
+      } catch (decryptError) {
+        logger.error('Decryption failed for response:', decryptError.message);
+      }
+    }
+    
+    res.json(responseData);
   } catch (error) {
     logger.error('Error updating card:', error.message);
-    res.status(500).json({ error: 'Failed to update card' });
+    logger.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to update card',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Delete CVV only (recommended for security)
+router.delete('/:id/cvv', verifyAuth, async (req, res) => {
+  try {
+    const doc = await db.collection('cards').doc(req.params.id).get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    if (doc.data().userId !== req.user.uid) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Remove CVV and related fields
+    await db.collection('cards').doc(req.params.id).update({
+      cvv: admin.firestore.FieldValue.delete(),
+      cvv_encrypted: admin.firestore.FieldValue.delete(),
+      cvvStoredAt: admin.firestore.FieldValue.delete(),
+      cvvWarningShown: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    logger.info('CVV deleted for card:', req.params.id);
+    res.json({ 
+      message: 'CVV deleted successfully',
+      info: 'You can add it again later if needed'
+    });
+  } catch (error) {
+    logger.error('Error deleting CVV:', error.message);
+    res.status(500).json({ error: 'Failed to delete CVV' });
   }
 });
 
