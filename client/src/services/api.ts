@@ -46,6 +46,95 @@ axios.interceptors.response.use(
   }
 );
 
+export const shareFolderApi = {
+  getAll: async (token: string | null) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/sharefolders`,
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  create: async (token: string | null, folder: { name: string; description?: string }) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/sharefolders`,
+        folder,
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  delete: async (token: string | null, id: string) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/sharefolders/${id}`,
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  addCard: async (token: string | null, folderId: string, cardId: string) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/sharefolders/${folderId}/cards`,
+        { cardId },
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  removeCard: async (token: string | null, folderId: string, cardId: string) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/sharefolders/${folderId}/cards/${cardId}`,
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  generateShareLink: async (token: string | null, folderId: string, expiresIn: string = 'never') => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/sharefolders/${folderId}/share`,
+        { expiresIn },
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  revokeShareLink: async (token: string | null, folderId: string) => {
+    try {
+      const response = await axios.delete(
+        `${API_URL}/sharefolders/${folderId}/share`,
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 export const cardApi = {
   getAll: async (token: string | null, bank?: string, type?: string) => {
     try {

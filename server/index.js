@@ -141,6 +141,9 @@ app.use('/api/cards', cardOperationsLimiter, require('./routes/cards'));
 // Extract routes have strict rate limiting due to expensive AI API calls
 app.use('/api/extract', extractionLimiter, require('./routes/extract'));
 
+// Share folder routes (authenticated + public endpoints)
+app.use('/api/sharefolders', cardOperationsLimiter, require('./routes/sharefolders'));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
