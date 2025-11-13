@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadImage } from '../../../utils/storage';
-import { cardApi, extractApi } from '../../../services/api';
+import { cardApi, extractApi, isRateLimitError } from '../../../services/api';
 import { CardType, Card } from '../../../types/card';
 import { ProgressBar } from '../../ui/ProgressBar';
 import { ManualEntryModal, ManualEntryData } from './ManualEntryModal';
@@ -90,13 +90,23 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         
         setCurrentCard(updatedCard);
         onUploadComplete(updatedCard);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Extraction error:', error);
         clearInterval(extractInterval);
         setExtractProgress(0);
-        await cardApi.update(idToken, card.id!, {
-          extractionStatus: 'failed'
-        });
+        
+        // Check if it's a rate limit error
+        if (isRateLimitError(error)) {
+          alert(error.message || 'Rate limit exceeded. You have reached the maximum number of extractions (10 per hour). Please try again later.');
+          await cardApi.update(idToken, card.id!, {
+            extractionStatus: 'rate_limited'
+          });
+        } else {
+          await cardApi.update(idToken, card.id!, {
+            extractionStatus: 'failed'
+          });
+        }
+        
         const failedCard = await cardApi.getById(idToken, card.id!);
         setCurrentCard(failedCard);
         onUploadComplete(failedCard);
@@ -109,9 +119,16 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
           setCurrentCard(null);
         }, 2000);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      alert('Failed to upload card. Please try again.');
+      
+      // Show appropriate error message
+      if (isRateLimitError(error)) {
+        alert(error.message || 'Rate limit exceeded. Please try again later.');
+      } else {
+        alert('Failed to upload card. Please try again.');
+      }
+      
       setShowOptions(true);
       setUploading(false);
       setExtracting(false);

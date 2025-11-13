@@ -3,7 +3,9 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const admin = require('firebase-admin');
 const path = require('path');
+const helmet = require('helmet');
 const logger = require('./utils/secureLogger');
+const { generalLimiter, authLimiter, extractionLimiter, cardOperationsLimiter } = require('./utils/rateLimiter');
 
 dotenv.config();
 
@@ -39,8 +41,65 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' })); // Add size limit to prevent DoS attacks
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Security Headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: [
+        "'self'", 
+        "'unsafe-inline'", // Allow inline styles for React
+        "https://fonts.googleapis.com" // Google Fonts
+      ],
+      scriptSrc: ["'self'"],
+      imgSrc: [
+        "'self'", 
+        "data:", 
+        "blob:",
+        "https://firebasestorage.googleapis.com", // Firebase Storage
+        "https://*.googleapis.com"
+      ],
+      connectSrc: [
+        "'self'",
+        "https://firebasestorage.googleapis.com",
+        "https://*.googleapis.com",
+        "https://identitytoolkit.googleapis.com", // Firebase Auth
+        "https://securetoken.googleapis.com", // Firebase Auth
+        "https://*.firebaseio.com", // Firebase Realtime Database (if used)
+        "https://*.cloudfunctions.net", // Firebase Cloud Functions (if used)
+        "wss://*.firebaseio.com", // WebSocket connections for Firebase
+        process.env.CLIENT_URL || 'http://localhost:3000'
+      ],
+      fontSrc: [
+        "'self'", 
+        "data:",
+        "https://fonts.googleapis.com",
+        "https://fonts.gstatic.com" // Google Fonts CDN
+      ],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'", "blob:"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Disable for Firebase Storage compatibility
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resources from Firebase
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true, // X-Content-Type-Options: nosniff
+  xssFilter: true, // X-XSS-Protection: 1; mode=block
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
+
+logger.info('🛡️  Security headers enabled with Helmet');
+
+// Apply general rate limiting to all API routes
+app.use('/api/', generalLimiter);
 
 // Initialize Firebase Admin
 try {
@@ -72,10 +131,15 @@ try {
   process.exit(1); // Exit if Firebase fails to initialize
 }
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/cards', require('./routes/cards'));
-app.use('/api/extract', require('./routes/extract'));
+// Routes with specific rate limiters
+// Auth routes have strict rate limiting to prevent brute force attacks
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+
+// Card routes have moderate rate limiting to prevent spam
+app.use('/api/cards', cardOperationsLimiter, require('./routes/cards'));
+
+// Extract routes have strict rate limiting due to expensive AI API calls
+app.use('/api/extract', extractionLimiter, require('./routes/extract'));
 
 // Health check
 app.get('/api/health', (req, res) => {

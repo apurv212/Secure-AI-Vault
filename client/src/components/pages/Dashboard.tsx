@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { cardApi } from '../../services/api';
+import { cardApi, isRateLimitError } from '../../services/api';
 import { Card } from '../../types/card';
 import { Loading } from '../ui/Loading';
 import { Menu, Search, Plus, ArrowLeft } from 'lucide-react';
@@ -33,8 +33,12 @@ export const Dashboard: React.FC = () => {
       setLoading(true);
       const fetchedCards = await cardApi.getAll(idToken, selectedBank || undefined);
       setAllCards(fetchedCards);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching cards:', error);
+      if (isRateLimitError(error)) {
+        // Show rate limit error to user
+        alert(error.message || 'Rate limit exceeded. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -46,8 +50,12 @@ export const Dashboard: React.FC = () => {
     try {
       const fetchedBanks = await cardApi.getBanks(idToken);
       setBanks(fetchedBanks);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching banks:', error);
+      if (isRateLimitError(error)) {
+        // Rate limit error - show user-friendly message
+        console.warn('Rate limit hit while fetching banks:', error.message);
+      }
     }
   }, [idToken]);
 
