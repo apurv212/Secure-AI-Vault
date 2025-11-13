@@ -3,10 +3,16 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const admin = require('firebase-admin');
 const fetch = require('node-fetch');
 const { normalizeExtractedData } = require('../utils/bankNormalizer');
+const logger = require('../utils/secureLogger');
+const { encryptCardData } = require('../utils/encryption');
+const { encryptStoredImage, isEncryptionEnabled } = require('../utils/imageEncryption');
 const router = express.Router();
 
+// Check if encryption is enabled
+const ENCRYPTION_ENABLED = isEncryptionEnabled();
+
 if (!process.env.GEMINI_API_KEY) {
-  console.warn('Warning: GEMINI_API_KEY not set. Card extraction will not work.');
+  logger.warn('⚠️  GEMINI_API_KEY not set. Card extraction will not work.');
 }
 
 const genAI = process.env.GEMINI_API_KEY 
@@ -42,7 +48,7 @@ router.post('/', verifyAuth, async (req, res) => {
     }
 
     // Fetch image from URL (Firebase Storage URL with token should work)
-    console.log('Fetching image from URL:', imageUrl);
+    logger.info('Fetching image for card extraction');
     
     let imageBuffer;
     let mimeType = 'image/jpeg';
@@ -68,7 +74,8 @@ router.post('/', verifyAuth, async (req, res) => {
               imageBuffer = buffer;
               const [metadata] = await file.getMetadata();
               mimeType = metadata.contentType || 'image/jpeg';
-              console.log('Image fetched from Firebase Storage. Size:', imageBuffer.length, 'bytes. MIME type:', mimeType);
+              logger.info('Image fetched from Firebase Storage');
+              logger.debug('Image size:', imageBuffer.length, 'bytes. MIME type:', mimeType);
             } else {
               throw new Error('File not found in Firebase Storage');
             }
@@ -79,7 +86,7 @@ router.post('/', verifyAuth, async (req, res) => {
           throw new Error('Could not extract bucket name from URL');
         }
       } catch (firebaseError) {
-        console.warn('Firebase Admin fetch failed, trying direct URL:', firebaseError.message);
+        logger.warn('Firebase Admin fetch failed, trying direct URL:', firebaseError.message);
         // Fallback to direct fetch (download URLs with tokens should work)
         const imageResponse = await fetch(imageUrl);
         if (!imageResponse.ok) {
@@ -88,7 +95,8 @@ router.post('/', verifyAuth, async (req, res) => {
         imageBuffer = await imageResponse.arrayBuffer();
         const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
         mimeType = contentType.split(';')[0];
-        console.log('Image fetched via direct URL. Size:', imageBuffer.byteLength, 'bytes. MIME type:', mimeType);
+        logger.info('Image fetched via direct URL');
+        logger.debug('Image size:', imageBuffer.byteLength, 'bytes. MIME type:', mimeType);
       }
     } else {
       // Direct URL fetch for non-Firebase URLs
@@ -99,7 +107,8 @@ router.post('/', verifyAuth, async (req, res) => {
       imageBuffer = await imageResponse.arrayBuffer();
       const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
       mimeType = contentType.split(';')[0];
-      console.log('Image fetched successfully. Size:', imageBuffer.byteLength, 'bytes. MIME type:', mimeType);
+      logger.info('Image fetched successfully');
+      logger.debug('Image size:', imageBuffer.byteLength, 'bytes. MIME type:', mimeType);
     }
     
     // Convert to base64
@@ -111,22 +120,22 @@ router.post('/', verifyAuth, async (req, res) => {
     try {
       // Try gemini-2.5-flash first (stable, fast, supports images)
       model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-      console.log('Using model: gemini-2.5-flash');
+      logger.debug('Using model: gemini-2.5-flash');
     } catch (e) {
       try {
         // Fallback to gemini-2.5-pro (more powerful, slower)
         model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
-        console.log('Using model: gemini-2.5-pro');
+        logger.debug('Using model: gemini-2.5-pro');
       } catch (e2) {
         try {
           // Fallback to gemini-2.0-flash-001 (older stable version)
           model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-001' });
-          console.log('Using model: gemini-2.0-flash-001');
+          logger.debug('Using model: gemini-2.0-flash-001');
         } catch (e3) {
           try {
             // Last resort: gemini-flash-latest
             model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-            console.log('Using model: gemini-flash-latest');
+            logger.debug('Using model: gemini-flash-latest');
           } catch (e4) {
             throw new Error('No available Gemini models. Please check your API key and available models.');
           }
@@ -168,7 +177,7 @@ Rules:
         prompt
       ]);
     } catch (apiError) {
-      console.error('Gemini API error:', apiError);
+      logger.error('Gemini API error:', apiError.message);
       // Fallback to text-only if vision fails
       throw new Error(`Gemini API error: ${apiError.message}`);
     }
@@ -177,7 +186,7 @@ Rules:
     try {
       responseText = result.response.text();
     } catch (textError) {
-      console.error('Error getting response text:', textError);
+      logger.error('Error getting response text:', textError.message);
       // Try alternative method
       const candidates = result.response.candidates;
       if (candidates && candidates[0] && candidates[0].content) {
@@ -222,11 +231,10 @@ Rules:
       // Normalize bank name and set type to "other" if no bank found
       extractedData = normalizeExtractedData(extractedData);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Response text:', responseText);
+      logger.error('JSON parse error:', parseError.message);
+      // DO NOT log responseText as it may contain sensitive card data
       return res.status(500).json({ 
         error: 'Failed to parse extraction result',
-        rawResponse: responseText,
         parseError: parseError.message
       });
     }
@@ -234,8 +242,60 @@ Rules:
     // Update card in database if cardId provided
     if (cardId) {
       const db = admin.firestore();
+      
+      let dataToStore = { ...extractedData };
+      let encryptedImagePath = null;
+      
+      // Encrypt sensitive fields if encryption is enabled
+      if (ENCRYPTION_ENABLED) {
+        try {
+          dataToStore = encryptCardData(dataToStore);
+          logger.info('Extracted card data encrypted before storage');
+          
+          // Encrypt the image after OCR extraction
+          if (imageUrl.includes('firebasestorage.googleapis.com')) {
+            logger.info('Encrypting card image after OCR...');
+            
+            // Use the configured bucket from environment
+            const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+            const bucket = admin.storage().bucket(bucketName);
+            
+            // Extract file path from URL
+            const urlParts = imageUrl.split('/o/');
+            if (urlParts.length > 1) {
+              const filePath = decodeURIComponent(urlParts[1].split('?')[0]);
+              logger.debug('Original file path:', filePath);
+              
+              try {
+                encryptedImagePath = await encryptStoredImage(bucket, filePath);
+                logger.info('Image encrypted successfully:', encryptedImagePath);
+                dataToStore.imageEncrypted = true;
+                dataToStore.imageUrl = encryptedImagePath; // Store encrypted path
+              } catch (encryptError) {
+                logger.error('Image encryption failed:', encryptError.message);
+                logger.debug('Error details:', encryptError.stack);
+                // Continue without encrypting image (image stays as-is)
+              }
+            }
+          }
+        } catch (encryptError) {
+          logger.error('Encryption failed for extracted data:', encryptError.message);
+          // Don't store if encryption fails
+          return res.status(500).json({ 
+            error: 'Failed to encrypt extracted data',
+            message: 'Encryption is required but failed.'
+          });
+        }
+      }
+      
+      // Add CVV warning if CVV was extracted
+      if (extractedData.cvv) {
+        dataToStore.cvvStoredAt = admin.firestore.FieldValue.serverTimestamp();
+        dataToStore.cvvWarningShown = false;
+      }
+      
       await db.collection('cards').doc(cardId).update({
-        ...extractedData,
+        ...dataToStore,
         extractedAt: admin.firestore.FieldValue.serverTimestamp(),
         extractionStatus: 'completed',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -247,8 +307,8 @@ Rules:
       data: extractedData
     });
   } catch (error) {
-    console.error('Extraction error:', error);
-    console.error('Error stack:', error.stack);
+    logger.error('Extraction error:', error.message);
+    logger.debug('Error stack:', error.stack);
     
     // Provide more detailed error information
     let errorMessage = error.message || 'Unknown error';

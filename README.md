@@ -2,7 +2,7 @@
 
 A secure web application for storing and managing card details (Credit/Debit, Aadhar, PAN) with AI-powered extraction.
 
-## ✨ Features
+##  Features
 
 - 🔐 **Authentication**
 - 📸 **Multiple Input Methods**: Upload from gallery, Camera capture, Manual entry
@@ -13,7 +13,7 @@ A secure web application for storing and managing card details (Credit/Debit, Aa
 - ⏳ **Skeleton Loaders** during extraction
 - 📱 **Responsive Design** for all devices
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Frontend**: React + TypeScript + Vite
 - **Backend**: Node.js + Express
@@ -26,7 +26,7 @@ A secure web application for storing and managing card details (Credit/Debit, Aa
 
 ```
 
-## 🔧 Environment Variables
+## Environment Variables
 
 **Client** (`client/.env`):
 ```env
@@ -45,7 +45,7 @@ PORT=5000
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
-## 🏃 Running the Application
+## Running the Application
 
 ```bash
 # Install all dependencies
@@ -63,7 +63,7 @@ cd client && npm run dev
 ```
 
 
-## 🔮 Future Features
+## Future Features
 
 - Share folder functionality (no login required for viewers)
 - End-to-end encryption
@@ -72,7 +72,7 @@ cd client && npm run dev
 - Mobile apps (iOS/Android)
 - CVV is never extracted or stored
 
-## 📝 License
+##  License
 
 MIT
 

@@ -4,6 +4,9 @@ node_modules/
 # Environment variables
 .env
 *.env.local
+server/.env
+.env.production
+.env.development
 
 # Firebase sensitive data
 server/serviceAccountKey.json
@@ -25,3 +28,19 @@ dist/
 .idea/
 *.swp
 *.swo
+
+PRODUCT_SPECIFICATION.md
+SECURITY_AUDIT_REPORT.md
+CRITICAL_ISSUES_SUMMARY.md
+SECURITY_FIXES_APPLIED.md
+SECURITY_FIX_GUIDE.md
+FIREBASE_SETUP.md
+FEATURES.md
+BUGS_AND_ISSUES.md
+ENCRYPTION_SETUP_GUIDE.md
+HELMET_SECURITY_GUIDE.md
+RATE_LIMITING_GUIDE.md
+test-rate-limit.js
+IMAGE_COMPRESSION_ENCRYPTION_GUIDE.md
+
+ZMDFILE/

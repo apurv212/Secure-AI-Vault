@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { uploadImage } from '../../../utils/storage';
-import { cardApi, extractApi } from '../../../services/api';
+import { cardApi, extractApi, isRateLimitError } from '../../../services/api';
 import { CardType, Card } from '../../../types/card';
 import { ProgressBar } from '../../ui/ProgressBar';
+import { ManualEntryModal, ManualEntryData } from './ManualEntryModal';
 import './CardUpload.css';
 
 interface CardUploadProps {
@@ -18,6 +19,7 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [extractProgress, setExtractProgress] = useState(0);
   const [currentCard, setCurrentCard] = useState<Card | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,21 +34,21 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
       setExtractProgress(0);
       setCurrentCard(null);
 
-      // Simulate upload progress
-      const uploadInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(uploadInterval);
-            return 90;
+      // Upload image to Firebase Storage with compression
+      // Progress callback updates the UI in real-time
+      const imageUrl = await uploadImage(file, user.uid, {
+        compress: true, // Enable compression (~25% reduction, maintains OCR quality)
+        onProgress: (stage, progress) => {
+          if (stage === 'compressing') {
+            // Compression takes 0-50% of progress bar
+            setUploadProgress(Math.floor(progress * 0.5));
+          } else if (stage === 'uploading') {
+            // Upload takes 50-100% of progress bar
+            setUploadProgress(50 + Math.floor(progress * 0.5));
           }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Upload image to Firebase Storage
-      const imageUrl = await uploadImage(file, user.uid);
+        }
+      });
       setUploadProgress(100);
-      clearInterval(uploadInterval);
 
       // Create card entry immediately
       const card = await cardApi.create(idToken, {
@@ -88,13 +90,23 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         
         setCurrentCard(updatedCard);
         onUploadComplete(updatedCard);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Extraction error:', error);
         clearInterval(extractInterval);
         setExtractProgress(0);
-        await cardApi.update(idToken, card.id!, {
-          extractionStatus: 'failed'
-        });
+        
+        // Check if it's a rate limit error
+        if (isRateLimitError(error)) {
+          alert(error.message || 'Rate limit exceeded. You have reached the maximum number of extractions (10 per hour). Please try again later.');
+          await cardApi.update(idToken, card.id!, {
+            extractionStatus: 'rate_limited'
+          });
+        } else {
+          await cardApi.update(idToken, card.id!, {
+            extractionStatus: 'failed'
+          });
+        }
+        
         const failedCard = await cardApi.getById(idToken, card.id!);
         setCurrentCard(failedCard);
         onUploadComplete(failedCard);
@@ -107,9 +119,16 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
           setCurrentCard(null);
         }, 2000);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      alert('Failed to upload card. Please try again.');
+      
+      // Show appropriate error message
+      if (isRateLimitError(error)) {
+        alert(error.message || 'Rate limit exceeded. Please try again later.');
+      } else {
+        alert('Failed to upload card. Please try again.');
+      }
+      
       setShowOptions(true);
       setUploading(false);
       setExtracting(false);
@@ -134,26 +153,48 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
   };
 
   const handleManualEntry = () => {
-    const type = prompt('Enter card type (credit/debit/aadhar/pan/other):') as CardType;
-    if (!type || !['credit', 'debit', 'aadhar', 'pan', 'other'].includes(type)) {
-      alert('Invalid card type');
-      return;
-    }
+    setShowManualModal(true);
+  };
 
-    const cardName = prompt('Enter card name (optional):') || '';
-    
+  const handleManualSubmit = async (data: ManualEntryData) => {
     if (!user || !idToken) return;
 
-    cardApi.create(idToken, {
-      userId: user.uid,
-      type,
-      cardName: cardName || undefined
-    }).then((card) => {
+    try {
+      let cardData: any = {
+        userId: user.uid,
+      };
+
+      if (data.entryType === 'card') {
+        // Card entry
+        cardData = {
+          ...cardData,
+          type: data.cardType,
+          cardNumber: data.cardNumber?.replace(/\s/g, ''),
+          cardHolderName: data.cardHolderName,
+          expiryDate: data.expiryDate,
+          cvv: data.cvv,
+          bank: data.bankName,
+          extractionStatus: 'completed',
+        };
+      } else {
+        // Document entry
+        cardData = {
+          ...cardData,
+          type: data.documentType === 'aadhar' ? 'aadhar' : data.documentType === 'pan' ? 'pan' : 'other',
+          cardName: data.documentName,
+          cardNumber: data.idNumber,
+          cardHolderName: data.notes,
+          extractionStatus: 'completed',
+        };
+      }
+
+      const card = await cardApi.create(idToken, cardData);
+      setShowManualModal(false);
       onUploadComplete(card);
-    }).catch((error) => {
-      console.error('Error creating card:', error);
-      alert('Failed to create card. Please try again.');
-    });
+    } catch (error) {
+      console.error('Error creating entry:', error);
+      alert('Failed to create entry. Please try again.');
+    }
   };
 
   if (uploading || extracting) {
@@ -163,7 +204,7 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         {uploading && (
           <ProgressBar 
             progress={uploadProgress} 
-            label="Uploading image to server..."
+            label={uploadProgress < 50 ? "Compressing image..." : "Uploading to server..."}
           />
         )}
         {extracting && (
@@ -265,6 +306,14 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         onChange={handleFileChange}
         style={{ display: 'none' }}
       />
+
+      {/* Manual Entry Modal */}
+      {showManualModal && (
+        <ManualEntryModal
+          onClose={() => setShowManualModal(false)}
+          onSubmit={handleManualSubmit}
+        />
+      )}
     </div>
   );
 };
