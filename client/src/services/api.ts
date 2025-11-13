@@ -62,6 +62,33 @@ export const cardApi = {
     }
   },
 
+  getCardImage: async (token: string | null, cardId: string): Promise<string> => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/cards/${cardId}/image`,
+        {
+          ...getAuthHeaders(token),
+          responseType: 'arraybuffer' // Get binary data
+        }
+      );
+      
+      // Check if response is JSON (unencrypted image URL)
+      const contentType = response.headers['content-type'];
+      if (contentType && contentType.includes('application/json')) {
+        // Response is JSON with imageUrl
+        const jsonData = JSON.parse(new TextDecoder().decode(response.data));
+        return jsonData.imageUrl;
+      }
+      
+      // Response is binary image data (decrypted)
+      // Convert to blob URL for display
+      const blob = new Blob([response.data], { type: 'image/jpeg' });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      throw error;
+    }
+  },
+
   getById: async (token: string | null, id: string) => {
     try {
       const response = await axios.get(

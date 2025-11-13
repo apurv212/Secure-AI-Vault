@@ -41,8 +41,8 @@ const corsOptions = {
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' })); // Add size limit to prevent DoS attacks
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '20mb' })); // Add size limit to prevent DoS attacks (20MB for compressed images)
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Security Headers with Helmet
 app.use(helmet({

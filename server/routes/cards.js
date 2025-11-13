@@ -4,12 +4,13 @@ const { body, validationResult } = require('express-validator');
 const { normalizeBankName } = require('../utils/bankNormalizer');
 const logger = require('../utils/secureLogger');
 const { encryptCardData, decryptCardData } = require('../utils/encryption');
+const { getDecryptedImageBuffer, isEncryptionEnabled } = require('../utils/imageEncryption');
 const router = express.Router();
 
 const db = admin.firestore();
 
 // Check if encryption is enabled
-const ENCRYPTION_ENABLED = !!process.env.ENCRYPTION_KEY;
+const ENCRYPTION_ENABLED = isEncryptionEnabled();
 
 // Middleware to verify authentication
 const verifyAuth = async (req, res, next) => {
@@ -370,6 +371,75 @@ router.get('/banks/list', verifyAuth, async (req, res) => {
   } catch (error) {
     logger.error('Error fetching banks:', error.message);
     res.status(500).json({ error: 'Failed to fetch banks', message: error.message });
+  }
+});
+
+// Serve decrypted card image
+// GET /api/cards/:id/image
+router.get('/:id/image', verifyAuth, async (req, res) => {
+  try {
+    const cardId = req.params.id;
+    
+    // Get card document
+    const doc = await db.collection('cards').doc(cardId).get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    const cardData = doc.data();
+    
+    // Verify ownership
+    if (cardData.userId !== req.user.uid) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    // Check if card has an image
+    if (!cardData.imageUrl) {
+      return res.status(404).json({ error: 'Card has no image' });
+    }
+    
+    // If image is not encrypted, redirect to Firebase Storage URL
+    if (!cardData.imageEncrypted) {
+      // For unencrypted images, return the URL for client to fetch
+      return res.json({ imageUrl: cardData.imageUrl, encrypted: false });
+    }
+    
+    // Decrypt and serve encrypted image
+    if (ENCRYPTION_ENABLED) {
+      try {
+        logger.info('Decrypting image for card:', cardId);
+        logger.debug('Image path:', cardData.imageUrl);
+        
+        // Get bucket from storage (use the configured bucket)
+        const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+        const bucket = admin.storage().bucket(bucketName);
+        
+        // Get decrypted image buffer
+        const decryptedBuffer = await getDecryptedImageBuffer(bucket, cardData.imageUrl);
+        
+        // Serve as image
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'private, max-age=3600'); // Cache for 1 hour
+        res.send(decryptedBuffer);
+        
+        logger.info('Image decrypted and served successfully');
+      } catch (decryptError) {
+        logger.error('Image decryption failed:', decryptError.message);
+        return res.status(500).json({ 
+          error: 'Failed to decrypt image',
+          message: 'Image decryption failed. The image may be corrupted or the encryption key may have changed.'
+        });
+      }
+    } else {
+      // Encryption not enabled but image marked as encrypted
+      return res.status(500).json({ 
+        error: 'Encryption not configured',
+        message: 'Image is encrypted but encryption key is not available.'
+      });
+    }
+  } catch (error) {
+    logger.error('Error serving card image:', error.message);
+    res.status(500).json({ error: 'Failed to retrieve card image' });
   }
 });
 

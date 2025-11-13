@@ -11,6 +11,7 @@ export interface Card {
   cvv?: string;
   bank?: string;
   imageUrl?: string;
+  imageEncrypted?: boolean; // Flag indicating if image is encrypted
   extractionStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   extractedAt?: any;
   createdAt?: any;

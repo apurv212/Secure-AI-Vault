@@ -5,10 +5,11 @@ const fetch = require('node-fetch');
 const { normalizeExtractedData } = require('../utils/bankNormalizer');
 const logger = require('../utils/secureLogger');
 const { encryptCardData } = require('../utils/encryption');
+const { encryptStoredImage, isEncryptionEnabled } = require('../utils/imageEncryption');
 const router = express.Router();
 
 // Check if encryption is enabled
-const ENCRYPTION_ENABLED = !!process.env.ENCRYPTION_KEY;
+const ENCRYPTION_ENABLED = isEncryptionEnabled();
 
 if (!process.env.GEMINI_API_KEY) {
   logger.warn('⚠️  GEMINI_API_KEY not set. Card extraction will not work.');
@@ -243,12 +244,40 @@ Rules:
       const db = admin.firestore();
       
       let dataToStore = { ...extractedData };
+      let encryptedImagePath = null;
       
       // Encrypt sensitive fields if encryption is enabled
       if (ENCRYPTION_ENABLED) {
         try {
           dataToStore = encryptCardData(dataToStore);
           logger.info('Extracted card data encrypted before storage');
+          
+          // Encrypt the image after OCR extraction
+          if (imageUrl.includes('firebasestorage.googleapis.com')) {
+            logger.info('Encrypting card image after OCR...');
+            
+            // Use the configured bucket from environment
+            const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+            const bucket = admin.storage().bucket(bucketName);
+            
+            // Extract file path from URL
+            const urlParts = imageUrl.split('/o/');
+            if (urlParts.length > 1) {
+              const filePath = decodeURIComponent(urlParts[1].split('?')[0]);
+              logger.debug('Original file path:', filePath);
+              
+              try {
+                encryptedImagePath = await encryptStoredImage(bucket, filePath);
+                logger.info('Image encrypted successfully:', encryptedImagePath);
+                dataToStore.imageEncrypted = true;
+                dataToStore.imageUrl = encryptedImagePath; // Store encrypted path
+              } catch (encryptError) {
+                logger.error('Image encryption failed:', encryptError.message);
+                logger.debug('Error details:', encryptError.stack);
+                // Continue without encrypting image (image stays as-is)
+              }
+            }
+          }
         } catch (encryptError) {
           logger.error('Encryption failed for extracted data:', encryptError.message);
           // Don't store if encryption fails

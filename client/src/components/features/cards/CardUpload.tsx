@@ -34,21 +34,21 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
       setExtractProgress(0);
       setCurrentCard(null);
 
-      // Simulate upload progress
-      const uploadInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(uploadInterval);
-            return 90;
+      // Upload image to Firebase Storage with compression
+      // Progress callback updates the UI in real-time
+      const imageUrl = await uploadImage(file, user.uid, {
+        compress: true, // Enable compression (~25% reduction, maintains OCR quality)
+        onProgress: (stage, progress) => {
+          if (stage === 'compressing') {
+            // Compression takes 0-50% of progress bar
+            setUploadProgress(Math.floor(progress * 0.5));
+          } else if (stage === 'uploading') {
+            // Upload takes 50-100% of progress bar
+            setUploadProgress(50 + Math.floor(progress * 0.5));
           }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Upload image to Firebase Storage
-      const imageUrl = await uploadImage(file, user.uid);
+        }
+      });
       setUploadProgress(100);
-      clearInterval(uploadInterval);
 
       // Create card entry immediately
       const card = await cardApi.create(idToken, {
@@ -204,7 +204,7 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         {uploading && (
           <ProgressBar 
             progress={uploadProgress} 
-            label="Uploading image to server..."
+            label={uploadProgress < 50 ? "Compressing image..." : "Uploading to server..."}
           />
         )}
         {extracting && (
