@@ -17,6 +17,8 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [displayImageUrl, setDisplayImageUrl] = useState<string | null>(null);
+  const [loadingImage, setLoadingImage] = useState(false);
   const [editData, setEditData] = useState<Partial<Card>>({
     cardName: card.cardName || '',
     cardNumber: card.cardNumber || '',
@@ -26,6 +28,27 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
     bank: card.bank || '',
     type: card.type,
   });
+
+  // Load card image (handles encrypted images)
+  useEffect(() => {
+    const loadImage = async () => {
+      if (!card.imageUrl || !idToken || !card.id) return;
+      
+      try {
+        setLoadingImage(true);
+        const imageUrl = await cardApi.getCardImage(idToken, card.id);
+        setDisplayImageUrl(imageUrl);
+      } catch (error) {
+        console.error('Error loading card image:', error);
+        // Fallback to direct URL if decryption fails
+        setDisplayImageUrl(card.imageUrl);
+      } finally {
+        setLoadingImage(false);
+      }
+    };
+    
+    loadImage();
+  }, [card.imageUrl, card.id, idToken]);
 
   // Update editData when card prop changes
   useEffect(() => {
@@ -113,6 +136,26 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
     }
   };
 
+  const handleDeleteCVV = async () => {
+    if (!idToken || !card.id) return;
+
+    const confirmed = window.confirm(
+      '⚠️ Delete CVV only?\n\n' +
+      'This will remove the CVV but keep all other card details.\n\n' +
+      'You can add it again later if needed.'
+    );
+    if (!confirmed) return;
+
+    try {
+      await cardApi.deleteCVV(idToken, card.id);
+      onUpdate();
+    } catch (error: any) {
+      console.error('Delete CVV error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      alert(`Failed to delete CVV: ${errorMessage}`);
+    }
+  };
+
   const handleEdit = () => {
     setEditData({
       cardName: card.cardName || '',
@@ -166,9 +209,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
       await cardApi.update(idToken, card.id, updateData);
       setIsEditing(false);
       onUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update error:', error);
-      alert('Failed to update card. Please try again.');
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      console.error('Error details:', error.response?.data);
+      alert(`Failed to update card: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
@@ -207,7 +252,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
       <div className="card-item">
         {card.imageUrl && (
           <div className="card-image">
-            <img src={card.imageUrl} alt={card.cardName || card.type} />
+            {loadingImage ? (
+              <div className="skeleton-loader" style={{ width: '100%', height: '200px' }} />
+            ) : displayImageUrl ? (
+              <img src={displayImageUrl} alt={card.cardName || card.type} />
+            ) : null}
           </div>
         )}
         
@@ -368,14 +417,20 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
       <div className="card-item">
         {card.imageUrl && (
           <div className="card-image">
-            <img src={card.imageUrl} alt={card.cardName || card.type} />
-            <button 
-              className="expand-image-btn" 
-              onClick={() => setIsImageExpanded(true)}
-              title="Expand image"
-            >
-              <span className="material-symbols-outlined">open_in_full</span>
-            </button>
+            {loadingImage ? (
+              <div className="skeleton-loader" style={{ width: '100%', height: '200px', borderRadius: '8px', background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'loading 1.5s ease-in-out infinite' }} />
+            ) : displayImageUrl ? (
+              <>
+                <img src={displayImageUrl} alt={card.cardName || card.type} />
+                <button 
+                  className="expand-image-btn" 
+                  onClick={() => setIsImageExpanded(true)}
+                  title="Expand image"
+                >
+                  <span className="material-symbols-outlined">open_in_full</span>
+                </button>
+              </>
+            ) : null}
           </div>
         )}
         
@@ -446,10 +501,18 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
                   <button
                     onClick={() => copyToClipboard(card.cvv!, 'cvv')}
                     className="copy-btn"
-                    title="Copy"
+                    title="Copy CVV"
                   >
                     <span className="material-symbols-outlined">content_copy</span>
                     {copied === 'cvv' && <span className="copied-indicator">Copied!</span>}
+                  </button>
+                  <button
+                    onClick={handleDeleteCVV}
+                    className="copy-btn"
+                    style={{ color: '#DC2626', marginLeft: '4px' }}
+                    title="Delete CVV (Security - recommended)"
+                  >
+                    <span className="material-symbols-outlined">delete</span>
                   </button>
                 </div>
               </div>
@@ -502,7 +565,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
     </div>
 
     {/* Image Expansion Modal */}
-    {isImageExpanded && card.imageUrl && (
+    {isImageExpanded && displayImageUrl && (
       <div className="image-modal-overlay" onClick={() => setIsImageExpanded(false)}>
         <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
           <button 
@@ -512,7 +575,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
           >
             <span className="material-symbols-outlined">close</span>
           </button>
-          <img src={card.imageUrl} alt={card.cardName || card.type} />
+          {loadingImage ? (
+            <div className="skeleton-loader" style={{ width: '80vw', height: '80vh', borderRadius: '8px' }} />
+          ) : (
+            <img src={displayImageUrl} alt={card.cardName || card.type} />
+          )}
         </div>
       </div>
     )}

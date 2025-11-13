@@ -86,24 +86,37 @@ export const getCardNetwork = (cardNumber: string): string => {
   
   const digits = cardNumber.replace(/\D/g, '');
   
-  // Visa
+  if (digits.length < 6) return 'unknown';
+  
+  // Visa: starts with 4
   if (digits.startsWith('4')) {
     return 'visa';
   }
   
-  // Mastercard
-  if (digits.startsWith('5') || (parseInt(digits.substring(0, 4)) >= 2221 && parseInt(digits.substring(0, 4)) <= 2720)) {
+  // Mastercard: 51-55 or 2221-2720
+  const first2 = parseInt(digits.substring(0, 2));
+  const first4 = parseInt(digits.substring(0, 4));
+  if ((first2 >= 51 && first2 <= 55) || (first4 >= 2221 && first4 <= 2720)) {
     return 'mastercard';
   }
   
-  // American Express
+  // American Express: 34 or 37
   if (digits.startsWith('34') || digits.startsWith('37')) {
     return 'amex';
   }
   
-  // RuPay
-  if (digits.startsWith('60') || digits.startsWith('65') || digits.startsWith('81') || digits.startsWith('82')) {
+  // RuPay: 60, 65, 81, 82, 508
+  if (digits.startsWith('60') || digits.startsWith('65') || 
+      digits.startsWith('81') || digits.startsWith('82') ||
+      digits.startsWith('508')) {
     return 'rupay';
+  }
+  
+  // Discover: 6011, 622126-622925, 644-649, 65
+  if (digits.startsWith('6011') || digits.startsWith('65') ||
+      (first4 >= 622126 && first4 <= 622925) ||
+      (first2 >= 644 && first2 <= 649)) {
+    return 'discover';
   }
   
   return 'unknown';
