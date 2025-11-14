@@ -16,6 +16,7 @@ export interface Card {
   extractedAt?: any;
   createdAt?: any;
   updatedAt?: any;
+  shareFolderId?: string; // Reference to share folder if card is in a shared folder
 }
 
 export interface ExtractionResult {
@@ -27,5 +28,15 @@ export interface ExtractionResult {
   bank?: string;
   cardName?: string;
   isValid: boolean;
+}
+
+export interface ShareFolder {
+  id?: string;
+  userId: string;
+  name: string;
+  description?: string;
+  cardIds: string[]; // Array of card IDs in this folder
+  createdAt?: any;
+  updatedAt?: any;
 }
 

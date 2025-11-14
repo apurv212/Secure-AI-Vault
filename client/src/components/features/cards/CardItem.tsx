@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardType } from '../../../types/card';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useToastContext } from '../../../contexts/ToastContext';
 import { cardApi, extractApi } from '../../../services/api';
 import { Skeleton } from '../../ui/Skeleton';
 import './CardItem.css';
@@ -12,6 +13,7 @@ interface CardItemProps {
 
 export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
   const { idToken } = useAuth();
+  const toast = useToastContext();
   const [reExtracting, setReExtracting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -39,7 +41,6 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
         const imageUrl = await cardApi.getCardImage(idToken, card.id);
         setDisplayImageUrl(imageUrl);
       } catch (error) {
-        console.error('Error loading card image:', error);
         // Fallback to direct URL if decryption fails
         setDisplayImageUrl(card.imageUrl);
       } finally {
@@ -114,8 +115,7 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
       });
       onUpdate();
     } catch (error) {
-      console.error('Re-extraction error:', error);
-      alert('Failed to re-extract. Please try again.');
+      toast.error('Failed to re-extract. Please try again.');
     } finally {
       setReExtracting(false);
     }
@@ -129,10 +129,10 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
 
     try {
       await cardApi.delete(idToken, card.id);
+      toast.success('Card deleted successfully');
       onUpdate();
     } catch (error) {
-      console.error('Delete error:', error);
-      alert('Failed to delete card. Please try again.');
+      toast.error('Failed to delete card. Please try again.');
     }
   };
 
@@ -148,11 +148,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
 
     try {
       await cardApi.deleteCVV(idToken, card.id);
+      toast.success('CVV deleted successfully');
       onUpdate();
     } catch (error: any) {
-      console.error('Delete CVV error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-      alert(`Failed to delete CVV: ${errorMessage}`);
+      toast.error(`Failed to delete CVV: ${errorMessage}`);
     }
   };
 
@@ -208,12 +208,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card, onUpdate }) => {
 
       await cardApi.update(idToken, card.id, updateData);
       setIsEditing(false);
+      toast.success('Card updated successfully');
       onUpdate();
     } catch (error: any) {
-      console.error('Update error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
-      console.error('Error details:', error.response?.data);
-      alert(`Failed to update card: ${errorMessage}`);
+      toast.error(`Failed to update card: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }

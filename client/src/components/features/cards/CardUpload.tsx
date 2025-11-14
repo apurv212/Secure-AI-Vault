@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useToastContext } from '../../../contexts/ToastContext';
 import { uploadImage } from '../../../utils/storage';
 import { cardApi, extractApi, isRateLimitError } from '../../../services/api';
 import { CardType, Card } from '../../../types/card';
@@ -13,6 +14,7 @@ interface CardUploadProps {
 
 export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
   const { user, idToken } = useAuth();
+  const toast = useToastContext();
   const [showOptions, setShowOptions] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -91,17 +93,17 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         setCurrentCard(updatedCard);
         onUploadComplete(updatedCard);
       } catch (error: any) {
-        console.error('Extraction error:', error);
         clearInterval(extractInterval);
         setExtractProgress(0);
         
         // Check if it's a rate limit error
         if (isRateLimitError(error)) {
-          alert(error.message || 'Rate limit exceeded. You have reached the maximum number of extractions (10 per hour). Please try again later.');
+          toast.error(error.message || 'Rate limit exceeded. You have reached the maximum number of extractions (10 per hour). Please try again later.');
           await cardApi.update(idToken, card.id!, {
             extractionStatus: 'rate_limited'
           });
         } else {
+          toast.error('Extraction failed. Please try re-extracting or editing the card manually.');
           await cardApi.update(idToken, card.id!, {
             extractionStatus: 'failed'
           });
@@ -120,13 +122,11 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         }, 2000);
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
-      
       // Show appropriate error message
       if (isRateLimitError(error)) {
-        alert(error.message || 'Rate limit exceeded. Please try again later.');
+        toast.error(error.message || 'Rate limit exceeded. Please try again later.');
       } else {
-        alert('Failed to upload card. Please try again.');
+        toast.error('Failed to upload card. Please try again.');
       }
       
       setShowOptions(true);
@@ -190,10 +190,10 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
 
       const card = await cardApi.create(idToken, cardData);
       setShowManualModal(false);
+      toast.success('Entry created successfully');
       onUploadComplete(card);
     } catch (error) {
-      console.error('Error creating entry:', error);
-      alert('Failed to create entry. Please try again.');
+      toast.error('Failed to create entry. Please try again.');
     }
   };
 

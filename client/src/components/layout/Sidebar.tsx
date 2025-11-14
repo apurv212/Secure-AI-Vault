@@ -1,6 +1,8 @@
-import React from 'react';
-import { Card } from '../../types/card';
+import React, { useState } from 'react';
+import { Card, ShareFolder } from '../../types/card';
 import { useAuth } from '../../contexts/AuthContext';
+import { shareFolderApi } from '../../services/api';
+import { CreateShareFolderModal, ShareLinkModal, ShareFolderDetailsModal } from '../features/shareFolder';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -10,6 +12,8 @@ interface SidebarProps {
   onClose: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  shareFolders?: ShareFolder[];
+  onShareFoldersUpdate?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -18,9 +22,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCardSelect, 
   onClose,
   searchQuery = '',
-  onSearchChange
+  onSearchChange,
+  shareFolders = [],
+  onShareFoldersUpdate
 }) => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, idToken } = useAuth();
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [showShareLinkModal, setShowShareLinkModal] = useState(false);
+  const [showFolderDetailsModal, setShowFolderDetailsModal] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<ShareFolder | null>(null);
 
   const handleSignOut = async () => {
     try {
@@ -29,6 +39,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
       console.error('Sign out error:', error);
     }
   };
+
+  const handleCreateFolder = async (name: string, description: string) => {
+    if (!idToken) return;
+
+    try {
+      await shareFolderApi.create(idToken, { name, description });
+      onShareFoldersUpdate?.();
+    } catch (error: any) {
+      console.error('Create folder error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to create share folder');
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+    if (!idToken) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${folderName}"?\n\nCards in this folder will not be deleted.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await shareFolderApi.delete(idToken, folderId);
+      onShareFoldersUpdate?.();
+    } catch (error: any) {
+      console.error('Delete folder error:', error);
+      alert('Failed to delete share folder. Please try again.');
+    }
+  };
+
+  const handleFolderClick = (folder: ShareFolder) => {
+    setSelectedFolder(folder);
+    setShowFolderDetailsModal(true);
+  };
+
+  const handleShareFolder = (folder: ShareFolder) => {
+    setSelectedFolder(folder);
+    setShowShareLinkModal(true);
+    setShowFolderDetailsModal(false);
+  };
+
+  const handleGenerateShareLink = async (folderId: string, expiresIn: string) => {
+    if (!idToken) throw new Error('Not authenticated');
+
+    try {
+      const result = await shareFolderApi.generateShareLink(idToken, folderId, expiresIn);
+      return {
+        shareUrl: result.shareUrl,
+        expiresAt: result.expiresAt
+      };
+    } catch (error: any) {
+      console.error('Generate share link error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to generate share link');
+    }
+  };
+
   // Filter cards based on search query
   const filteredCards = searchQuery.trim() 
     ? cards.filter(card => {
@@ -80,6 +147,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="sidebar-header">
           <h2>My Cards ({cards.length})</h2>
         </div>
+
+        {/* Share Folders Section */}
+        {shareFolders && shareFolders.length > 0 && (
+          <div className="share-folders-section">
+            <div className="section-header">
+              <h3>Share Folders</h3>
+              <button
+                className="create-folder-btn"
+                onClick={() => setShowCreateFolderModal(true)}
+                title="Create Share Folder"
+              >
+                <span className="material-symbols-outlined">add</span>
+              </button>
+            </div>
+            <div className="folders-list">
+              {shareFolders.map((folder) => (
+                <div key={folder.id} className="folder-item">
+                  <div 
+                    className="folder-item-content"
+                    onClick={() => handleFolderClick(folder)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className="material-symbols-outlined folder-icon">folder</span>
+                    <div className="folder-details">
+                      <h4>{folder.name}</h4>
+                      <span className="folder-count">{folder.cardIds?.length || 0} cards</span>
+                    </div>
+                  </div>
+                  <div className="folder-actions">
+                    <button
+                      className="share-folder-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareFolder(folder);
+                      }}
+                      title="Share folder"
+                      disabled={(folder.cardIds?.length || 0) === 0}
+                    >
+                      <span className="material-symbols-outlined">share</span>
+                    </button>
+                    <button
+                      className="delete-folder-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFolder(folder.id!, folder.name);
+                      }}
+                      title="Delete folder"
+                    >
+                      <span className="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Create Folder Button (when no folders exist) */}
+        {(!shareFolders || shareFolders.length === 0) && (
+          <div className="create-folder-section">
+            <button
+              className="create-folder-primary-btn"
+              onClick={() => setShowCreateFolderModal(true)}
+            >
+              <span className="material-symbols-outlined">folder_open</span>
+              <span>Create Share Folder</span>
+            </button>
+          </div>
+        )}
         {onSearchChange && (
           <div className="sidebar-search">
             <input
@@ -142,6 +278,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Create Share Folder Modal */}
+      {showCreateFolderModal && (
+        <CreateShareFolderModal
+          isOpen={showCreateFolderModal}
+          onClose={() => setShowCreateFolderModal(false)}
+          onCreate={handleCreateFolder}
+        />
+      )}
+
+      {/* Folder Details Modal */}
+      {showFolderDetailsModal && selectedFolder && (
+        <ShareFolderDetailsModal
+          isOpen={showFolderDetailsModal}
+          onClose={() => {
+            setShowFolderDetailsModal(false);
+            setSelectedFolder(null);
+          }}
+          folder={selectedFolder}
+          onUpdate={onShareFoldersUpdate || (() => {})}
+          onShare={handleShareFolder}
+        />
+      )}
+
+      {/* Share Link Modal */}
+      {showShareLinkModal && selectedFolder && (
+        <ShareLinkModal
+          isOpen={showShareLinkModal}
+          onClose={() => {
+            setShowShareLinkModal(false);
+            setSelectedFolder(null);
+          }}
+          folderId={selectedFolder.id!}
+          folderName={selectedFolder.name}
+          onGenerate={handleGenerateShareLink}
+        />
+      )}
     </div>
   );
 };
