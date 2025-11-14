@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await axios.post(`${API_URL}/auth/verify`, { token });
         } catch (error) {
-          console.error('Token verification failed:', error);
+          // Token verification failed - handled silently
         }
       } else {
         setIdToken(null);
@@ -58,7 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIdToken(token);
       await axios.post(`${API_URL}/auth/verify`, { token });
     } catch (error) {
-      console.error('Sign in error:', error);
       throw error;
     }
   };
@@ -70,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIdToken(token);
       await axios.post(`${API_URL}/auth/verify`, { token });
     } catch (error) {
-      console.error('Email sign in error:', error);
       throw error;
     }
   };
@@ -88,7 +86,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIdToken(token);
       await axios.post(`${API_URL}/auth/verify`, { token });
     } catch (error) {
-      console.error('Email sign up error:', error);
       throw error;
     }
   };
@@ -98,7 +95,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await firebaseSignOut(auth);
       setIdToken(null);
     } catch (error) {
-      console.error('Sign out error:', error);
       throw error;
     }
   };

@@ -6,6 +6,7 @@
  */
 
 const crypto = require('crypto');
+const logger = require('./secureLogger');
 
 // Encryption configuration
 const ALGORITHM = 'aes-256-gcm';
@@ -166,36 +167,37 @@ async function encryptStoredImage(bucket, filePath) {
  */
 async function getDecryptedImageBuffer(bucket, encryptedFilePath) {
   try {
-    console.log('Attempting to decrypt image from path:', encryptedFilePath);
-    console.log('Bucket name:', bucket.name);
+    logger.info('Attempting to decrypt image from path:', encryptedFilePath);
+    logger.debug('Bucket name:', bucket.name);
     
     const file = bucket.file(encryptedFilePath);
     const [exists] = await file.exists();
     
-    console.log('File exists check:', exists);
+    logger.debug('File exists check:', exists);
     
     if (!exists) {
       // List files to debug
-      console.log('Listing files in bucket to debug...');
+      logger.debug('Listing files in bucket to debug...');
       const [files] = await bucket.getFiles({ prefix: encryptedFilePath.split('/').slice(0, -1).join('/') });
-      console.log('Files found in directory:', files.map(f => f.name));
+      logger.debug('Files found in directory:', files.map(f => f.name));
       
       throw new Error(`Encrypted file not found: ${encryptedFilePath}`);
     }
     
     // Download encrypted file
-    console.log('Downloading encrypted file...');
+    logger.info('Downloading encrypted file...');
     const [encryptedBuffer] = await file.download();
-    console.log('Downloaded encrypted buffer, size:', encryptedBuffer.length, 'bytes');
+    logger.debug('Downloaded encrypted buffer, size:', encryptedBuffer.length, 'bytes');
     
     // Decrypt and return
-    console.log('Decrypting image buffer...');
+    logger.info('Decrypting image buffer...');
     const decrypted = decryptImageBuffer(encryptedBuffer);
-    console.log('Decryption successful, size:', decrypted.length, 'bytes');
+    logger.debug('Decryption successful, size:', decrypted.length, 'bytes');
     
     return decrypted;
   } catch (error) {
-    console.error('Decryption error details:', error);
+    logger.error('Decryption error details:', error.message);
+    logger.debug('Error stack:', error.stack);
     throw new Error(`Failed to decrypt image: ${error.message}`);
   }
 }

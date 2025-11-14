@@ -256,26 +256,41 @@ Rules:
           if (imageUrl.includes('firebasestorage.googleapis.com')) {
             logger.info('Encrypting card image after OCR...');
             
-            // Use the configured bucket from environment
-            const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
-            const bucket = admin.storage().bucket(bucketName);
-            
-            // Extract file path from URL
-            const urlParts = imageUrl.split('/o/');
-            if (urlParts.length > 1) {
-              const filePath = decodeURIComponent(urlParts[1].split('?')[0]);
-              logger.debug('Original file path:', filePath);
+            try {
+              // Use the configured bucket from environment
+              const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+              const bucket = admin.storage().bucket(bucketName);
               
-              try {
-                encryptedImagePath = await encryptStoredImage(bucket, filePath);
-                logger.info('Image encrypted successfully:', encryptedImagePath);
-                dataToStore.imageEncrypted = true;
-                dataToStore.imageUrl = encryptedImagePath; // Store encrypted path
-              } catch (encryptError) {
-                logger.error('Image encryption failed:', encryptError.message);
-                logger.debug('Error details:', encryptError.stack);
-                // Continue without encrypting image (image stays as-is)
+              // Extract file path from URL
+              const urlParts = imageUrl.split('/o/');
+              if (urlParts.length > 1) {
+                let filePath = decodeURIComponent(urlParts[1].split('?')[0]);
+                logger.debug('Extracted file path:', filePath);
+                
+                // Verify file exists before attempting encryption
+                const file = bucket.file(filePath);
+                const [exists] = await file.exists();
+                
+                if (exists) {
+                  encryptedImagePath = await encryptStoredImage(bucket, filePath);
+                  logger.info('Image encrypted successfully:', encryptedImagePath);
+                  dataToStore.imageEncrypted = true;
+                  dataToStore.imageUrl = encryptedImagePath; // Store encrypted path
+                } else {
+                  logger.warn('Image file not found in storage, skipping encryption:', filePath);
+                  // List files in the directory to help debug
+                  const [files] = await bucket.getFiles({ 
+                    prefix: filePath.split('/').slice(0, -1).join('/') 
+                  });
+                  logger.debug('Available files in directory:', files.map(f => f.name));
+                }
+              } else {
+                logger.warn('Could not extract file path from URL:', imageUrl);
               }
+            } catch (encryptError) {
+              logger.error('Image encryption failed:', encryptError.message);
+              logger.debug('Error details:', encryptError.stack);
+              // Continue without encrypting image (image stays as-is)
             }
           }
         } catch (encryptError) {
@@ -309,6 +324,21 @@ Rules:
   } catch (error) {
     logger.error('Extraction error:', error.message);
     logger.debug('Error stack:', error.stack);
+    
+    // Update card status to 'failed' if cardId provided
+    if (req.body.cardId) {
+      try {
+        const db = admin.firestore();
+        await db.collection('cards').doc(req.body.cardId).update({
+          extractionStatus: 'failed',
+          extractionError: error.message || 'Unknown error',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        logger.info('Card status updated to failed:', req.body.cardId);
+      } catch (updateError) {
+        logger.error('Failed to update card status:', updateError.message);
+      }
+    }
     
     // Provide more detailed error information
     let errorMessage = error.message || 'Unknown error';

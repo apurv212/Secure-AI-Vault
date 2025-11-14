@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { cardApi, isRateLimitError } from '../../services/api';
-import { Card } from '../../types/card';
+import { useToastContext } from '../../contexts/ToastContext';
+import { cardApi, shareFolderApi, isRateLimitError } from '../../services/api';
+import { Card, ShareFolder } from '../../types/card';
 import { Loading } from '../ui/Loading';
 import { Menu, Search, Plus, ArrowLeft } from 'lucide-react';
 import { CardItem } from '../features/cards/CardItem';
@@ -10,11 +11,14 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { Sidebar } from '../layout/Sidebar';
 import { maskCardNumber, maskPAN, getCardNetwork } from '../../utils/cardUtils';
 import { NetworkLogo } from '../ui/NetworkLogo';
+import { Dropdown } from '../ui/Dropdown';
+import { SelectShareFolderModal } from '../features/shareFolder';
 
 type ViewMode = 'list' | 'details' | 'add';
 
 export const Dashboard: React.FC = () => {
   const { idToken } = useAuth();
+  const toast = useToastContext();
   const [cards, setCards] = useState<Card[]>([]);
   const [allCards, setAllCards] = useState<Card[]>([]);
   const [banks, setBanks] = useState<string[]>([]);
@@ -25,6 +29,9 @@ export const Dashboard: React.FC = () => {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [shareFolders, setShareFolders] = useState<ShareFolder[]>([]);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [cardToCopy, setCardToCopy] = useState<Card | null>(null);
 
   const fetchCards = useCallback(async () => {
     if (!idToken) return;
@@ -34,10 +41,10 @@ export const Dashboard: React.FC = () => {
       const fetchedCards = await cardApi.getAll(idToken, selectedBank || undefined);
       setAllCards(fetchedCards);
     } catch (error: any) {
-      console.error('Error fetching cards:', error);
       if (isRateLimitError(error)) {
-        // Show rate limit error to user
-        alert(error.message || 'Rate limit exceeded. Please try again later.');
+        toast.error(error.message || 'Rate limit exceeded. Please try again later.');
+      } else {
+        toast.error('Failed to fetch cards. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -51,11 +58,18 @@ export const Dashboard: React.FC = () => {
       const fetchedBanks = await cardApi.getBanks(idToken);
       setBanks(fetchedBanks);
     } catch (error: any) {
-      console.error('Error fetching banks:', error);
-      if (isRateLimitError(error)) {
-        // Rate limit error - show user-friendly message
-        console.warn('Rate limit hit while fetching banks:', error.message);
-      }
+      // Silently fail for banks list - not critical
+    }
+  }, [idToken]);
+
+  const fetchShareFolders = useCallback(async () => {
+    if (!idToken) return;
+
+    try {
+      const folders = await shareFolderApi.getAll(idToken);
+      setShareFolders(folders);
+    } catch (error: any) {
+      // Silently fail for share folders - not critical
     }
   }, [idToken]);
 
@@ -87,8 +101,9 @@ export const Dashboard: React.FC = () => {
     if (idToken) {
       fetchCards();
       fetchBanks();
+      fetchShareFolders();
     }
-  }, [idToken, selectedBank, fetchCards, fetchBanks]);
+  }, [idToken, selectedBank, fetchCards, fetchBanks, fetchShareFolders]);
 
   const handleCardUpdate = () => {
     fetchCards();
@@ -158,6 +173,44 @@ export const Dashboard: React.FC = () => {
     }
     // For other card types, use the type itself
     return card.type;
+  };
+
+  const handleDeleteCard = async (card: Card) => {
+    if (!idToken || !card.id) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${card.cardName || card.bank || card.type}" card?\n\nThis action cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      await cardApi.delete(idToken, card.id);
+      toast.success('Card deleted successfully');
+      fetchCards();
+    } catch (error: any) {
+      toast.error('Failed to delete card. Please try again.');
+    }
+  };
+
+  const handleCopyToFolder = (card: Card) => {
+    setCardToCopy(card);
+    setShowCopyModal(true);
+  };
+
+  const handleCopyCardToFolder = async (folderId: string) => {
+    if (!idToken || !cardToCopy?.id) return;
+
+    try {
+      await shareFolderApi.addCard(idToken, folderId, cardToCopy.id);
+      await fetchShareFolders();
+      setShowCopyModal(false);
+      setCardToCopy(null);
+      toast.success('Card copied to share folder successfully!');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to copy card to folder';
+      toast.error(errorMessage);
+    }
   };
 
   if (loading && cards.length === 0) {
@@ -287,19 +340,21 @@ export const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-3">
                     <NetworkLogo network={getNetworkForCard(card)} />
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Menu functionality here
-                      }}
-                      className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-                    >
-                      <svg className="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 16 16">
-                        <circle cx="8" cy="3" r="1.5" />
-                        <circle cx="8" cy="8" r="1.5" />
-                        <circle cx="8" cy="13" r="1.5" />
-                      </svg>
-                    </button>
+                    <Dropdown
+                      items={[
+                        {
+                          label: 'Copy to Share Folder',
+                          icon: 'folder_shared',
+                          onClick: () => handleCopyToFolder(card),
+                        },
+                        {
+                          label: 'Delete Card',
+                          icon: 'delete',
+                          onClick: () => handleDeleteCard(card),
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -340,6 +395,22 @@ export const Dashboard: React.FC = () => {
             onClose={() => setShowSidebar(false)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            shareFolders={shareFolders}
+            onShareFoldersUpdate={fetchShareFolders}
+          />
+        )}
+
+        {/* Copy to Share Folder Modal */}
+        {showCopyModal && cardToCopy && (
+          <SelectShareFolderModal
+            isOpen={showCopyModal}
+            onClose={() => {
+              setShowCopyModal(false);
+              setCardToCopy(null);
+            }}
+            onSelect={handleCopyCardToFolder}
+            folders={shareFolders}
+            cardId={cardToCopy.id!}
           />
         )}
       </div>
