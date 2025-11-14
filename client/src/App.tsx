@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Provider } from 'react-redux';
 import { store } from './store';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { Login } from './components/pages/Login';
 import { Dashboard } from './components/pages/Dashboard';
 import { SharedView } from './components/pages/SharedView';
@@ -57,11 +58,13 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <Provider store={store}>
-    <AuthProvider>
-        <Router>
-      <AppContent />
-        </Router>
-    </AuthProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </ToastProvider>
+      </AuthProvider>
     </Provider>
   );
 }

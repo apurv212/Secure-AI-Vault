@@ -26,12 +26,10 @@ export const uploadImage = async (
     
     // Step 1: Compress image if enabled (default: true)
     if (options.compress !== false) {
-      console.log('📦 Starting image compression...');
       options.onProgress?.('compressing', 0);
       
-      // Show compression estimate
-      const estimate = getCompressionEstimate(file);
-      console.log(`📊 Original: ${estimate.originalSizeMB}MB, Estimated: ${estimate.estimatedSizeMB}MB`);
+      // Get compression estimate
+      getCompressionEstimate(file);
       
       options.onProgress?.('compressing', 30);
       
@@ -39,11 +37,9 @@ export const uploadImage = async (
       fileToUpload = await compressCardImage(file);
       
       options.onProgress?.('compressing', 100);
-      console.log('✅ Compression complete');
     }
     
     // Step 2: Upload to Firebase Storage
-    console.log('☁️ Uploading to Firebase Storage...');
     options.onProgress?.('uploading', 0);
     
     const timestamp = Date.now();
@@ -59,11 +55,9 @@ export const uploadImage = async (
     const downloadURL = await getDownloadURL(storageRef);
     
     options.onProgress?.('uploading', 100);
-    console.log('✅ Upload complete:', downloadURL);
     
     return downloadURL;
   } catch (error) {
-    console.error('❌ Upload error:', error);
     throw error;
   }
 };

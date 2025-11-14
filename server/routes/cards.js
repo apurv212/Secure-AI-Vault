@@ -325,8 +325,75 @@ router.delete('/:id', verifyAuth, async (req, res) => {
     if (!doc.exists) {
       return res.status(404).json({ error: 'Card not found' });
     }
-    if (doc.data().userId !== req.user.uid) {
+    const cardData = doc.data();
+    if (cardData.userId !== req.user.uid) {
       return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Delete image from Firebase Storage if exists
+    if (cardData.imageUrl) {
+      try {
+        const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+        const bucket = admin.storage().bucket(bucketName);
+        
+        // Extract file path from imageUrl
+        let filePath = cardData.imageUrl;
+        
+        // If it's a full URL, extract the path
+        if (filePath.includes('firebasestorage.googleapis.com')) {
+          const urlParts = filePath.split('/o/');
+          if (urlParts.length > 1) {
+            filePath = decodeURIComponent(urlParts[1].split('?')[0]);
+          }
+        }
+        
+        logger.debug('Attempting to delete image:', filePath);
+        
+        const file = bucket.file(filePath);
+        const [exists] = await file.exists();
+        
+        if (exists) {
+          await file.delete();
+          logger.info('Image deleted from storage:', filePath);
+          
+          // Also try to delete encrypted version if it exists
+          const encryptedFile = bucket.file(`${filePath}.encrypted`);
+          const [encryptedExists] = await encryptedFile.exists();
+          if (encryptedExists) {
+            await encryptedFile.delete();
+            logger.info('Encrypted image deleted from storage:', `${filePath}.encrypted`);
+          }
+        } else {
+          logger.warn('Image file not found in storage:', filePath);
+          
+          // Try to find files with similar name pattern for debugging
+          const userFolder = filePath.split('/').slice(0, -1).join('/');
+          logger.debug('Searching in folder:', userFolder);
+          
+          try {
+            const [files] = await bucket.getFiles({ prefix: userFolder });
+            logger.debug('Files found in folder:', files.map(f => f.name));
+            
+            // Try to find and delete the file by pattern matching
+            const fileName = filePath.split('/').pop();
+            const matchingFiles = files.filter(f => f.name.includes(fileName));
+            
+            if (matchingFiles.length > 0) {
+              logger.info('Found matching files by pattern:', matchingFiles.map(f => f.name));
+              for (const matchingFile of matchingFiles) {
+                await matchingFile.delete();
+                logger.info('Deleted matched file:', matchingFile.name);
+              }
+            }
+          } catch (listError) {
+            logger.error('Error listing files:', listError.message);
+          }
+        }
+      } catch (storageError) {
+        logger.error('Failed to delete image from storage:', storageError.message);
+        logger.debug('Storage error details:', storageError.stack);
+        // Continue with card deletion even if image deletion fails
+      }
     }
 
     await db.collection('cards').doc(req.params.id).delete();

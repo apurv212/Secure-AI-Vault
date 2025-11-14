@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToastContext } from '../../contexts/ToastContext';
 import { cardApi, shareFolderApi, isRateLimitError } from '../../services/api';
 import { Card, ShareFolder } from '../../types/card';
 import { Loading } from '../ui/Loading';
@@ -17,6 +18,7 @@ type ViewMode = 'list' | 'details' | 'add';
 
 export const Dashboard: React.FC = () => {
   const { idToken } = useAuth();
+  const toast = useToastContext();
   const [cards, setCards] = useState<Card[]>([]);
   const [allCards, setAllCards] = useState<Card[]>([]);
   const [banks, setBanks] = useState<string[]>([]);
@@ -39,10 +41,10 @@ export const Dashboard: React.FC = () => {
       const fetchedCards = await cardApi.getAll(idToken, selectedBank || undefined);
       setAllCards(fetchedCards);
     } catch (error: any) {
-      console.error('Error fetching cards:', error);
       if (isRateLimitError(error)) {
-        // Show rate limit error to user
-        alert(error.message || 'Rate limit exceeded. Please try again later.');
+        toast.error(error.message || 'Rate limit exceeded. Please try again later.');
+      } else {
+        toast.error('Failed to fetch cards. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -56,11 +58,7 @@ export const Dashboard: React.FC = () => {
       const fetchedBanks = await cardApi.getBanks(idToken);
       setBanks(fetchedBanks);
     } catch (error: any) {
-      console.error('Error fetching banks:', error);
-      if (isRateLimitError(error)) {
-        // Rate limit error - show user-friendly message
-        console.warn('Rate limit hit while fetching banks:', error.message);
-      }
+      // Silently fail for banks list - not critical
     }
   }, [idToken]);
 
@@ -71,7 +69,7 @@ export const Dashboard: React.FC = () => {
       const folders = await shareFolderApi.getAll(idToken);
       setShareFolders(folders);
     } catch (error: any) {
-      console.error('Error fetching share folders:', error);
+      // Silently fail for share folders - not critical
     }
   }, [idToken]);
 
@@ -188,10 +186,10 @@ export const Dashboard: React.FC = () => {
 
     try {
       await cardApi.delete(idToken, card.id);
+      toast.success('Card deleted successfully');
       fetchCards();
     } catch (error: any) {
-      console.error('Delete error:', error);
-      alert('Failed to delete card. Please try again.');
+      toast.error('Failed to delete card. Please try again.');
     }
   };
 
@@ -208,10 +206,10 @@ export const Dashboard: React.FC = () => {
       await fetchShareFolders();
       setShowCopyModal(false);
       setCardToCopy(null);
-      alert('Card copied to share folder successfully!');
+      toast.success('Card copied to share folder successfully!');
     } catch (error: any) {
-      console.error('Copy error:', error);
-      throw new Error(error.response?.data?.message || 'Failed to copy card to folder');
+      const errorMessage = error.response?.data?.message || 'Failed to copy card to folder';
+      toast.error(errorMessage);
     }
   };
 

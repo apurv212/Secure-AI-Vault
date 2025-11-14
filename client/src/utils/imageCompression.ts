@@ -35,10 +35,6 @@ export async function compressImageFile(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   
   try {
-    const originalSizeMB = (file.size / 1024 / 1024).toFixed(2);
-    console.log(`📦 Compressing image: ${originalSizeMB}MB`);
-    const startTime = performance.now();
-    
     // Compress the image
     const compressedFile = await imageCompression(file, {
       maxSizeMB: opts.maxSizeMB,
@@ -47,25 +43,14 @@ export async function compressImageFile(
       initialQuality: opts.quality,
     });
     
-    const endTime = performance.now();
-    const compressionTime = ((endTime - startTime) / 1000).toFixed(2);
-    const compressedSizeMB = (compressedFile.size / 1024 / 1024).toFixed(2);
-    const sizeReduction = ((1 - compressedFile.size / file.size) * 100).toFixed(1);
-    
-    console.log(`✅ Compressed in ${compressionTime}s`);
-    console.log(`📊 Size: ${originalSizeMB}MB → ${compressedSizeMB}MB (${sizeReduction}% reduction)`);
-    
     // If compression didn't help much or made it bigger, return original
     if (compressedFile.size >= file.size * 0.95) {
-      console.log('⚠️ Compression ineffective, using original file');
       return file;
     }
     
     return compressedFile;
   } catch (error) {
-    console.error('❌ Compression error:', error);
     // If compression fails, return original file
-    console.log('⚠️ Compression failed, using original file');
     return file;
   }
 }

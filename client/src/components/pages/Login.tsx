@@ -102,76 +102,86 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 p-4">
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
+    <div className="min-h-screen w-full flex lg:items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-blue-950 dark:to-indigo-950 p-4 py-8 lg:py-4">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 lg:items-center">
         {/* Left side - Branding and Features */}
-        <div className="hidden lg:flex flex-col gap-8 text-slate-900 dark:text-slate-100">
-          <div className="space-y-4">
+        <div className="flex flex-col gap-6 lg:gap-8 text-slate-900 dark:text-slate-100 order-1 lg:order-none">
+          <div className="space-y-3 lg:space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
-                <Shield className="w-8 h-8 text-white" />
+              <div className="p-2 lg:p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
+                <Shield className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 Secure AI Vault
               </h1>
             </div>
-            <p className="text-xl text-slate-600 dark:text-slate-400">
+            <p className="text-base lg:text-xl text-slate-600 dark:text-slate-400">
               Your intelligent card management solution
             </p>
           </div>
 
-          <div className="space-y-6">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Lock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <div className="space-y-4 lg:space-y-6">
+            <div className="flex items-start gap-3 lg:gap-4">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex-shrink-0">
+                <Lock className="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Bank-Grade Security</h3>
-                <p className="text-slate-600 dark:text-slate-400">
+                <h3 className="font-semibold text-base lg:text-lg mb-1">Bank-Grade Security</h3>
+                <p className="text-sm lg:text-base text-slate-600 dark:text-slate-400">
                   Your cards are encrypted and stored with enterprise-level security
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <Sparkles className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex items-start gap-3 lg:gap-4">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex-shrink-0">
+                <Sparkles className="w-5 h-5 lg:w-6 lg:h-6 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">AI-Powered Organization</h3>
-                <p className="text-slate-600 dark:text-slate-400">
+                <h3 className="font-semibold text-base lg:text-lg mb-1">AI-Powered Organization</h3>
+                <p className="text-sm lg:text-base text-slate-600 dark:text-slate-400">
                   Automatically extract and organize card information with AI
                 </p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <CreditCard className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            <div className="flex items-start gap-3 lg:gap-4">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
+                <CreditCard className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-1">Smart Management</h3>
-                <p className="text-slate-600 dark:text-slate-400">
+                <h3 className="font-semibold text-base lg:text-lg mb-1">Smart Management</h3>
+                <p className="text-sm lg:text-base text-slate-600 dark:text-slate-400">
                   Search, filter, and manage all your cards in one secure place
                 </p>
               </div>
+            </div>
+
+            {/* Powered by */}
+            <div className="pt-4 lg:pt-6 border-t border-slate-200 dark:border-slate-700">
+              <p className="text-xs lg:text-sm text-slate-500 dark:text-slate-400 text-center">
+                Powered by{' '}
+                <a
+                  href="https://bnminfosolution.co.in/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                >
+                  bnminfosolution.co.in
+                </a>
+              </p>
             </div>
           </div>
         </div>
 
         {/* Right side - Login Card */}
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center w-full order-2 lg:order-none">
           <Card className="w-full max-w-md shadow-2xl border-slate-200 dark:border-slate-800">
             <CardHeader className="space-y-3 text-center pb-6">
-              <div className="flex justify-center mb-2">
-                <div className="p-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg lg:hidden">
-                  <Shield className="w-10 h-10 text-white" />
-                </div>
-              </div>
-              <CardTitle className="text-3xl font-bold">
+              <CardTitle className="text-2xl lg:text-3xl font-bold">
                 {authMode === 'signin' ? 'Welcome Back' : 'Create Account'}
               </CardTitle>
-              <CardDescription className="text-base">
+              <CardDescription className="text-sm lg:text-base">
                 {authMode === 'signin' 
                   ? 'Sign in to access your secure vault' 
                   : 'Sign up to start managing your cards securely'}
