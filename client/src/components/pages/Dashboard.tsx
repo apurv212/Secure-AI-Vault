@@ -410,7 +410,6 @@ export const Dashboard: React.FC = () => {
             }}
             onSelect={handleCopyCardToFolder}
             folders={shareFolders}
-            cardId={cardToCopy.id!}
           />
         )}
       </div>
