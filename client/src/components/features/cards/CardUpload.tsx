@@ -3,7 +3,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { uploadImage } from '../../../utils/storage';
 import { cardApi, extractApi, isRateLimitError } from '../../../services/api';
-import { CardType, Card } from '../../../types/card';
+import { Card } from '../../../types/card';
 import { ProgressBar } from '../../ui/ProgressBar';
 import { ManualEntryModal, ManualEntryData } from './ManualEntryModal';
 import './CardUpload.css';
@@ -100,7 +100,7 @@ export const CardUpload: React.FC<CardUploadProps> = ({ onUploadComplete }) => {
         if (isRateLimitError(error)) {
           toast.error(error.message || 'Rate limit exceeded. You have reached the maximum number of extractions (10 per hour). Please try again later.');
           await cardApi.update(idToken, card.id!, {
-            extractionStatus: 'rate_limited'
+            extractionStatus: 'failed'
           });
         } else {
           toast.error('Extraction failed. Please try re-extracting or editing the card manually.');

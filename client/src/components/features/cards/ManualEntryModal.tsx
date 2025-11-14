@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { CardType } from '../../../types/card';
 
 interface ManualEntryModalProps {
   onClose: () => void;
