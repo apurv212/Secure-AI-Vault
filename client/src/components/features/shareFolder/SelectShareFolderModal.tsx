@@ -8,7 +8,6 @@ interface SelectShareFolderModalProps {
   onClose: () => void;
   onSelect: (folderId: string) => Promise<void>;
   folders: ShareFolder[];
-  cardId: string;
 }
 
 export const SelectShareFolderModal: React.FC<SelectShareFolderModalProps> = ({
@@ -16,7 +15,6 @@ export const SelectShareFolderModal: React.FC<SelectShareFolderModalProps> = ({
   onClose,
   onSelect,
   folders,
-  cardId,
 }) => {
   const [selectedFolderId, setSelectedFolderId] = useState<string>('');
   const [isCopying, setIsCopying] = useState(false);

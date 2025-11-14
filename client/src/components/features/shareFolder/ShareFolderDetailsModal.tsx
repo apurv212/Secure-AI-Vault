@@ -137,12 +137,6 @@ export const ShareFolderDetailsModal: React.FC<ShareFolderDetailsModalProps> = (
             <span className="material-symbols-outlined">credit_card</span>
             <span>{cards.length} {cards.length === 1 ? 'card' : 'cards'}</span>
           </div>
-          {folder.isPublic && (
-            <div className="stat-item public">
-              <span className="material-symbols-outlined">link</span>
-              <span>Publicly shared</span>
-            </div>
-          )}
         </div>
 
         {/* Cards List */}
@@ -202,7 +196,7 @@ export const ShareFolderDetailsModal: React.FC<ShareFolderDetailsModalProps> = (
             disabled={cards.length === 0}
           >
             <span className="material-symbols-outlined">share</span>
-            {folder.isPublic ? 'Manage Share Link' : 'Generate Share Link'}
+            Generate Share Link
           </button>
           <button
             onClick={onClose}
