@@ -21,8 +21,9 @@ const corsOptions = {
       'http://localhost:5173', // Vite default
     ];
     
-    // Allow requests with no origin (like mobile apps, Postman, etc.) only in development
-    if (!origin && process.env.NODE_ENV !== 'production') {
+    // Allow requests with no origin (health checks, direct API calls, server-to-server)
+    // This is safe and necessary for Render health checks and direct API access
+    if (!origin) {
       return callback(null, true);
     }
     
