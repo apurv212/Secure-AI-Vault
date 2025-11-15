@@ -153,7 +153,22 @@ app.get('/api/health', (req, res) => {
 // Serve static files from React build (for production)
 // This must come AFTER all API routes
 const clientBuildPath = path.join(__dirname, 'client-build');
-app.use(express.static(clientBuildPath));
+
+// Log the build path for debugging
+logger.info(`Static files path: ${clientBuildPath}`);
+
+// Serve static files with proper configuration
+app.use(express.static(clientBuildPath, {
+  maxAge: '1d', // Cache static assets for 1 day
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filepath) => {
+    if (filepath.endsWith('.html')) {
+      // Don't cache HTML files
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // Handle React routing - send all non-API requests to index.html
 // This allows React Router to handle routes like /shared/:token
@@ -163,7 +178,19 @@ app.get('*', (req, res) => {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
   
-  res.sendFile(path.join(clientBuildPath, 'index.html'));
+  const indexPath = path.join(clientBuildPath, 'index.html');
+  
+  // Log for debugging
+  logger.info(`Serving index.html for route: ${req.path}`);
+  
+  // Send the index.html file
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      logger.error(`Error serving index.html: ${err.message}`);
+      logger.error(`Attempted path: ${indexPath}`);
+      res.status(500).send('Server error: Could not load application');
+    }
+  });
 });
 
 app.listen(PORT, () => {
