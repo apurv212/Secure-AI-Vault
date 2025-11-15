@@ -266,7 +266,8 @@ router.post('/:id/share', [
     // Generate new share token
     const shareToken = generateShareToken();
     const expiresAt = calculateExpiry(expiresIn);
-    const now = admin.firestore.FieldValue.serverTimestamp();
+    const now = new Date(); // Use regular Date for history entries
+    const timestampNow = admin.firestore.FieldValue.serverTimestamp(); // Use sentinel for Firestore fields
 
     // Create share history entry
     const shareHistoryEntry = {
@@ -294,8 +295,8 @@ router.post('/:id/share', [
       isPublic: true,
       shareToken,
       expiresAt: expiresAt || null,
-      sharedAt: now,
-      updatedAt: now,
+      sharedAt: timestampNow,
+      updatedAt: timestampNow,
       shareHistory: updatedHistory
     });
 
@@ -338,7 +339,8 @@ router.delete('/:id/share', verifyAuth, async (req, res) => {
       return res.status(400).json({ error: 'No active share link to revoke' });
     }
 
-    const now = admin.firestore.FieldValue.serverTimestamp();
+    const now = new Date(); // Use regular Date for history entries
+    const timestampNow = admin.firestore.FieldValue.serverTimestamp(); // Use sentinel for Firestore fields
     
     // Update share history to mark current link as revoked
     const shareHistory = folderData.shareHistory || [];
@@ -356,8 +358,8 @@ router.delete('/:id/share', verifyAuth, async (req, res) => {
     // Disable sharing but keep the share token for history
     await folderRef.update({
       isPublic: false,
-      revokedAt: now,
-      updatedAt: now,
+      revokedAt: timestampNow,
+      updatedAt: timestampNow,
       shareHistory: updatedHistory
     });
 
