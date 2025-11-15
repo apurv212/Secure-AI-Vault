@@ -9,6 +9,19 @@ const router = express.Router();
 
 const db = admin.firestore();
 const ENCRYPTION_ENABLED = isEncryptionEnabled();
+const SHARE_BASE_URL = (() => {
+  const candidates = [
+    process.env.SHARE_BASE_URL,
+    process.env.SERVER_PUBLIC_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.SERVER_URL,
+    process.env.CLIENT_URL,
+    `http://localhost:${process.env.PORT || 5000}`
+  ];
+
+  const raw = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
+  return raw ? raw.replace(/\/$/, '') : 'http://localhost:5000';
+})();
 
 // ==================== MIDDLEWARE ====================
 
@@ -300,7 +313,7 @@ router.post('/:id/share', [
       shareHistory: updatedHistory
     });
 
-    const shareUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/shared/${shareToken}`;
+    const shareUrl = `${SHARE_BASE_URL}/shared/${shareToken}`;
 
     logger.info(`User ${req.user.uid} generated share link for folder ${folderId}`);
     res.json({
@@ -396,7 +409,7 @@ router.get('/:id/history', verifyAuth, async (req, res) => {
     // Convert timestamps and format for frontend
     const formattedHistory = shareHistory.map(entry => ({
       shareToken: entry.shareToken,
-      shareUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/shared/${entry.shareToken}`,
+      shareUrl: `${SHARE_BASE_URL}/shared/${entry.shareToken}`,
       createdAt: entry.createdAt?.toDate ? entry.createdAt.toDate().toISOString() : entry.createdAt,
       expiresAt: entry.expiresAt?.toDate ? entry.expiresAt.toDate().toISOString() : entry.expiresAt,
       revokedAt: entry.revokedAt?.toDate ? entry.revokedAt.toDate().toISOString() : entry.revokedAt,
