@@ -266,13 +266,37 @@ router.post('/:id/share', [
     // Generate new share token
     const shareToken = generateShareToken();
     const expiresAt = calculateExpiry(expiresIn);
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    // Create share history entry
+    const shareHistoryEntry = {
+      shareToken,
+      expiresAt: expiresAt || null,
+      createdAt: now,
+      isActive: true,
+      revokedAt: null
+    };
+
+    // Get existing share history or initialize
+    const shareHistory = folderData.shareHistory || [];
+    
+    // Mark previous active shares as inactive (revoked)
+    const updatedHistory = shareHistory.map(entry => ({
+      ...entry,
+      isActive: false,
+      revokedAt: entry.isActive && !entry.revokedAt ? now : entry.revokedAt
+    }));
+
+    // Add new share entry
+    updatedHistory.push(shareHistoryEntry);
 
     await folderRef.update({
       isPublic: true,
       shareToken,
       expiresAt: expiresAt || null,
-      sharedAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      sharedAt: now,
+      updatedAt: now,
+      shareHistory: updatedHistory
     });
 
     const shareUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/shared/${shareToken}`;
@@ -310,11 +334,31 @@ router.delete('/:id/share', verifyAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    if (!folderData.isPublic) {
+      return res.status(400).json({ error: 'No active share link to revoke' });
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    
+    // Update share history to mark current link as revoked
+    const shareHistory = folderData.shareHistory || [];
+    const updatedHistory = shareHistory.map(entry => {
+      if (entry.isActive && entry.shareToken === folderData.shareToken) {
+        return {
+          ...entry,
+          isActive: false,
+          revokedAt: now
+        };
+      }
+      return entry;
+    });
+
     // Disable sharing but keep the share token for history
     await folderRef.update({
       isPublic: false,
-      revokedAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      revokedAt: now,
+      updatedAt: now,
+      shareHistory: updatedHistory
     });
 
     logger.info(`User ${req.user.uid} revoked share link for folder ${folderId}`);
@@ -322,6 +366,51 @@ router.delete('/:id/share', verifyAuth, async (req, res) => {
   } catch (error) {
     logger.error('Error revoking share link:', error);
     res.status(500).json({ error: 'Failed to revoke share link' });
+  }
+});
+
+/**
+ * GET /api/sharefolders/:id/history
+ * Get share link history for a folder
+ */
+router.get('/:id/history', verifyAuth, async (req, res) => {
+  try {
+    const folderId = req.params.id;
+
+    const folderRef = db.collection('shareFolders').doc(folderId);
+    const folderDoc = await folderRef.get();
+
+    if (!folderDoc.exists) {
+      return res.status(404).json({ error: 'Share folder not found' });
+    }
+
+    const folderData = folderDoc.data();
+    if (folderData.userId !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const shareHistory = folderData.shareHistory || [];
+    
+    // Convert timestamps and format for frontend
+    const formattedHistory = shareHistory.map(entry => ({
+      shareToken: entry.shareToken,
+      shareUrl: `${process.env.CLIENT_URL || 'http://localhost:3000'}/shared/${entry.shareToken}`,
+      createdAt: entry.createdAt?.toDate ? entry.createdAt.toDate().toISOString() : entry.createdAt,
+      expiresAt: entry.expiresAt?.toDate ? entry.expiresAt.toDate().toISOString() : entry.expiresAt,
+      revokedAt: entry.revokedAt?.toDate ? entry.revokedAt.toDate().toISOString() : entry.revokedAt,
+      isActive: entry.isActive
+    })).sort((a, b) => {
+      // Sort by creation date, newest first
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
+
+    logger.info(`User ${req.user.uid} retrieved share history for folder ${folderId}`);
+    res.json({ history: formattedHistory });
+  } catch (error) {
+    logger.error('Error fetching share history:', error);
+    res.status(500).json({ error: 'Failed to fetch share history' });
   }
 });
 

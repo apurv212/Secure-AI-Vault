@@ -132,6 +132,18 @@ export const shareFolderApi = {
     } catch (error) {
       throw error;
     }
+  },
+
+  getShareHistory: async (token: string | null, folderId: string) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/sharefolders/${folderId}/history`,
+        getAuthHeaders(token)
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
