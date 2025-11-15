@@ -30,18 +30,24 @@ A secure web application for storing and managing card details (Credit/Debit, Aa
 
 **Client** (`client/.env`):
 ```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
 VITE_API_URL=http://localhost:5000/api
 ```
 
 **Server** (`server/.env`):
 ```env
 PORT=5000
+CLIENT_URL=http://localhost:3000
+# Optional override (defaults to RENDER_EXTERNAL_URL or PORT)
+SHARE_BASE_URL=http://localhost:5000
+
+# Firebase client config served dynamically to hide keys from the build output
+PUBLIC_FIREBASE_API_KEY=your_api_key
+PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+PUBLIC_FIREBASE_APP_ID=your_app_id
+
 GEMINI_API_KEY=your_gemini_api_key
 ```
 

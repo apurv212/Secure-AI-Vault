@@ -145,6 +145,9 @@ app.use('/api/extract', extractionLimiter, require('./routes/extract'));
 // Share folder routes (authenticated + public endpoints)
 app.use('/api/sharefolders', cardOperationsLimiter, require('./routes/sharefolders'));
 
+// Public configuration routes (no auth, still rate limited)
+app.use('/api/config', require('./routes/config'));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
