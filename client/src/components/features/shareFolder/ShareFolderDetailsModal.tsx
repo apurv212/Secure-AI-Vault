@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../ui/Modal';
-import { Card, ShareFolder } from '../../../types/card';
+import { Card, ShareFolder, ShareHistoryEntry } from '../../../types/card';
 import { shareFolderApi, cardApi } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { NetworkLogo } from '../../ui/NetworkLogo';
@@ -26,6 +26,10 @@ export const ShareFolderDetailsModal: React.FC<ShareFolderDetailsModalProps> = (
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [shareHistory, setShareHistory] = useState<ShareHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -87,6 +91,55 @@ export const ShareFolderDetailsModal: React.FC<ShareFolderDetailsModalProps> = (
       return;
     }
     onShare(folder);
+  };
+
+  const handleRevokeLink = async () => {
+    if (!idToken || !folder.id) return;
+
+    const confirmed = window.confirm(
+      'Revoke the current share link?\n\nThe link will stop working immediately. You can generate a new link anytime.'
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      setRevoking(true);
+      await shareFolderApi.revokeShareLink(idToken, folder.id);
+      onUpdate();
+      alert('Share link revoked successfully!');
+    } catch (error: any) {
+      console.error('Revoke link error:', error);
+      alert(error.response?.data?.error || 'Failed to revoke share link. Please try again.');
+    } finally {
+      setRevoking(false);
+    }
+  };
+
+  const handleViewHistory = async () => {
+    if (!idToken || !folder.id) return;
+
+    try {
+      setHistoryLoading(true);
+      setShowHistory(true);
+      const response = await shareFolderApi.getShareHistory(idToken, folder.id);
+      setShareHistory(response.history || []);
+    } catch (error: any) {
+      console.error('Fetch history error:', error);
+      alert('Failed to load share history. Please try again.');
+      setShowHistory(false);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('Link copied to clipboard!');
+  };
+
+  const formatDate = (dateString: string | null): string => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleString();
   };
 
   const getCardTitle = (card: Card): string => {
@@ -188,6 +241,125 @@ export const ShareFolderDetailsModal: React.FC<ShareFolderDetailsModalProps> = (
           )}
         </div>
 
+        {/* Share Status & Actions */}
+        {folder.isPublic && folder.shareToken && (
+          <div className="share-status-section">
+            <div className="share-status-header">
+              <span className="material-symbols-outlined status-icon active">link</span>
+              <div className="status-info">
+                <h4>Active Share Link</h4>
+                <p className="status-text">This folder is currently shared</p>
+              </div>
+            </div>
+            <div className="share-actions">
+              <button
+                onClick={() => copyToClipboard(`${window.location.origin}/shared/${folder.shareToken}`)}
+                className="copy-link-btn-small"
+                title="Copy link"
+              >
+                <span className="material-symbols-outlined">content_copy</span>
+                Copy Link
+              </button>
+              <button
+                onClick={handleRevokeLink}
+                className="revoke-link-btn"
+                disabled={revoking}
+                title="Revoke link"
+              >
+                {revoking ? (
+                  <span className="spinner-small"></span>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">link_off</span>
+                    Revoke Link
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Share History */}
+        {!showHistory ? (
+          <div className="history-toggle-section">
+            <button
+              onClick={handleViewHistory}
+              className="view-history-btn"
+              disabled={historyLoading}
+            >
+              {historyLoading ? (
+                <span className="spinner-small"></span>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined">history</span>
+                  View Share History
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="share-history-section">
+            <div className="section-header">
+              <h3>Share History</h3>
+              <button
+                onClick={() => setShowHistory(false)}
+                className="close-history-btn"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            {shareHistory.length === 0 ? (
+              <div className="empty-state">
+                <span className="material-symbols-outlined">history</span>
+                <p>No share history yet</p>
+              </div>
+            ) : (
+              <div className="history-list">
+                {shareHistory.map((entry, index) => (
+                  <div key={index} className={`history-item ${entry.isActive ? 'active' : 'revoked'}`}>
+                    <div className="history-item-header">
+                      <span className={`material-symbols-outlined status-icon ${entry.isActive ? 'active' : 'revoked'}`}>
+                        {entry.isActive ? 'check_circle' : 'cancel'}
+                      </span>
+                      <span className="history-status">
+                        {entry.isActive ? 'Active' : 'Revoked'}
+                      </span>
+                    </div>
+                    <div className="history-item-details">
+                      <div className="history-detail">
+                        <span className="detail-label">Created:</span>
+                        <span className="detail-value">{formatDate(entry.createdAt)}</span>
+                      </div>
+                      {entry.expiresAt && (
+                        <div className="history-detail">
+                          <span className="detail-label">Expires:</span>
+                          <span className="detail-value">{formatDate(entry.expiresAt)}</span>
+                        </div>
+                      )}
+                      {entry.revokedAt && (
+                        <div className="history-detail">
+                          <span className="detail-label">Revoked:</span>
+                          <span className="detail-value">{formatDate(entry.revokedAt)}</span>
+                        </div>
+                      )}
+                    </div>
+                    {entry.isActive && (
+                      <button
+                        onClick={() => copyToClipboard(entry.shareUrl)}
+                        className="copy-history-link-btn"
+                        title="Copy link"
+                      >
+                        <span className="material-symbols-outlined">content_copy</span>
+                        Copy Link
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="folder-actions-section">
           <button
@@ -196,7 +368,7 @@ export const ShareFolderDetailsModal: React.FC<ShareFolderDetailsModalProps> = (
             disabled={cards.length === 0}
           >
             <span className="material-symbols-outlined">share</span>
-            Generate Share Link
+            {folder.isPublic ? 'Generate New Link' : 'Generate Share Link'}
           </button>
           <button
             onClick={onClose}

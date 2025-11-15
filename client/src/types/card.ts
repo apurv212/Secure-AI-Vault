@@ -30,12 +30,27 @@ export interface ExtractionResult {
   isValid: boolean;
 }
 
+export interface ShareHistoryEntry {
+  shareToken: string;
+  shareUrl: string;
+  createdAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  isActive: boolean;
+}
+
 export interface ShareFolder {
   id?: string;
   userId: string;
   name: string;
   description?: string;
   cardIds: string[]; // Array of card IDs in this folder
+  isPublic?: boolean;
+  shareToken?: string | null;
+  expiresAt?: any;
+  sharedAt?: any;
+  revokedAt?: any;
+  shareHistory?: ShareHistoryEntry[];
   createdAt?: any;
   updatedAt?: any;
 }

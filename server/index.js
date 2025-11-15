@@ -150,9 +150,26 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Serve static files from React build (for production)
+// This must come AFTER all API routes
+const clientBuildPath = path.join(__dirname, '../client/build');
+app.use(express.static(clientBuildPath));
+
+// Handle React routing - send all non-API requests to index.html
+// This allows React Router to handle routes like /shared/:token
+app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
+});
+
 app.listen(PORT, () => {
   logger.system(`🚀 Server running on port ${PORT}`);
   logger.system(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.system(`🔐 CORS allowed origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+  logger.system(`📁 Serving static files from: ${clientBuildPath}`);
 });
 
