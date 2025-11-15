@@ -20,8 +20,10 @@ npm-debug.log*
 Thumbs.db
 
 # Build outputs
-build/
+client/build/
 dist/
+# Allow server/client-build for deployment
+!server/client-build/
 
 # IDE
 .vscode/
@@ -44,3 +46,4 @@ test-rate-limit.js
 IMAGE_COMPRESSION_ENCRYPTION_GUIDE.md
 
 ZMDFILE/
+deploy.sh

@@ -152,7 +152,7 @@ app.get('/api/health', (req, res) => {
 
 // Serve static files from React build (for production)
 // This must come AFTER all API routes
-const clientBuildPath = path.join(__dirname, '../client/build');
+const clientBuildPath = path.join(__dirname, 'client-build');
 app.use(express.static(clientBuildPath));
 
 // Handle React routing - send all non-API requests to index.html
