@@ -12,10 +12,10 @@ const ENCRYPTION_ENABLED = isEncryptionEnabled();
 const SHARE_BASE_URL = (() => {
   const candidates = [
     process.env.SHARE_BASE_URL,
+    process.env.CLIENT_URL,            // Check CLIENT_URL first for share links
     process.env.SERVER_PUBLIC_URL,
-    process.env.RENDER_EXTERNAL_URL,
+    process.env.RENDER_EXTERNAL_URL,   // Render's backend URL (lower priority)
     process.env.SERVER_URL,
-    process.env.CLIENT_URL,
     `http://localhost:${process.env.PORT || 5000}`
   ];
 
