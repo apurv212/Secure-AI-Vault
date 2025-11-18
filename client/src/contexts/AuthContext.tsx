@@ -8,7 +8,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { getAuthInstance, getGoogleProvider } from '../firebase/config';
+import { auth, googleProvider } from '../firebase/config';
 import axios from 'axios';
 
 interface AuthContextType {
@@ -31,53 +31,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [idToken, setIdToken] = useState<string | null>(null);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-    let isMounted = true;
-
-    const initAuthListener = async () => {
-      try {
-        const firebaseAuth = await getAuthInstance();
-        unsubscribe = onAuthStateChanged(firebaseAuth, async (currentUser) => {
-          if (!isMounted) {
-            return;
-          }
-
-          setUser(currentUser);
-
-          if (currentUser) {
-            const token = await currentUser.getIdToken();
-            setIdToken(token);
-            try {
-              await axios.post(`${API_URL}/auth/verify`, { token });
-            } catch (error) {
-              // Token verification failed - handled silently
-            }
-          } else {
-            setIdToken(null);
-          }
-
-          setLoading(false);
-        });
-      } catch (error) {
-        console.error('Failed to initialize Firebase auth', error);
-        setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      if (user) {
+        const token = await user.getIdToken();
+        setIdToken(token);
+        // Verify token with backend
+        try {
+          await axios.post(`${API_URL}/auth/verify`, { token });
+        } catch (error) {
+          // Token verification failed - handled silently
+        }
+      } else {
+        setIdToken(null);
       }
-    };
+      setLoading(false);
+    });
 
-    initAuthListener();
-
-    return () => {
-      isMounted = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [API_URL]);
+    return () => unsubscribe();
+  }, []);
 
   const signIn = async () => {
     try {
-      const [firebaseAuth, provider] = await Promise.all([getAuthInstance(), getGoogleProvider()]);
-      const result = await signInWithPopup(firebaseAuth, provider);
+      const result = await signInWithPopup(auth, googleProvider);
       const token = await result.user.getIdToken();
       setIdToken(token);
       await axios.post(`${API_URL}/auth/verify`, { token });
@@ -88,8 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      const firebaseAuth = await getAuthInstance();
-      const result = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
       const token = await result.user.getIdToken();
       setIdToken(token);
       await axios.post(`${API_URL}/auth/verify`, { token });
@@ -100,8 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
     try {
-      const firebaseAuth = await getAuthInstance();
-      const result = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
       
       // Update profile with display name if provided
       if (name && result.user) {
@@ -118,8 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      const firebaseAuth = await getAuthInstance();
-      await firebaseSignOut(firebaseAuth);
+      await firebaseSignOut(auth);
       setIdToken(null);
     } catch (error) {
       throw error;

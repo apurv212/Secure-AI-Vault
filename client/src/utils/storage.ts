@@ -1,5 +1,5 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getStorageInstance } from '../firebase/config';
+import { storage } from '../firebase/config';
 import { compressCardImage, getCompressionEstimate } from './imageCompression';
 
 export interface UploadOptions {
@@ -44,7 +44,6 @@ export const uploadImage = async (
     
     const timestamp = Date.now();
     const fileName = `${userId}/${timestamp}_${file.name}`;
-    const storage = await getStorageInstance();
     const storageRef = ref(storage, `cards/${fileName}`);
     
     options.onProgress?.('uploading', 30);
