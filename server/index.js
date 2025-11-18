@@ -166,9 +166,16 @@ app.use(express.static(clientBuildPath, {
   etag: true,
   lastModified: true,
   setHeaders: (res, filepath) => {
-    if (filepath.endsWith('.html')) {
+    // Set correct MIME types for static assets
+    if (filepath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    } else if (filepath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+    } else if (filepath.endsWith('.html')) {
       // Don't cache HTML files
       res.setHeader('Cache-Control', 'no-cache');
+    } else if (filepath.endsWith('.json')) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
   }
 }));
