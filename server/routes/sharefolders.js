@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const logger = require('../utils/secureLogger');
 const { generateShareToken, calculateExpiry, isExpired } = require('../utils/shareToken');
 const { decryptCardData } = require('../utils/encryption');
-const { isEncryptionEnabled } = require('../utils/imageEncryption');
+const { isEncryptionEnabled, getDecryptedImageBuffer } = require('../utils/imageEncryption');
 const router = express.Router();
 
 const db = admin.firestore();
@@ -488,14 +488,34 @@ router.get('/public/:token', async (req, res) => {
       let cardData = doc.data();
 
       // Decrypt card data if encryption is enabled
-      if (ENCRYPTION_ENABLED && cardData.encrypted) {
+      // Always try to decrypt if encryption is enabled - decryptCardData checks individual field flags
+      if (ENCRYPTION_ENABLED) {
         try {
+          // Log before decryption (check if fields are encrypted)
+          const hasEncryptedFields = cardData.cardNumber_encrypted || cardData.cvv_encrypted || cardData.expiryDate_encrypted;
+          if (hasEncryptedFields) {
+            logger.info(`Decrypting card ${doc.id} for public share (has encrypted fields)`);
+          }
+          
           cardData = decryptCardData(cardData);
+          
+          // Log after decryption (verify fields are now readable)
+          if (hasEncryptedFields) {
+            logger.info(`Card ${doc.id} decrypted successfully - cardNumber length: ${cardData.cardNumber?.length || 0}`);
+          }
         } catch (error) {
           logger.error(`Failed to decrypt card ${doc.id} for public share:`, error);
-          // Return partially decrypted data or skip
-          return null;
+          // Continue with partially decrypted data rather than skipping the card
         }
+      } else {
+        logger.warn('ENCRYPTION_ENABLED is false - cards will not be decrypted');
+      }
+
+      // Construct image URL - use decryption endpoint if image is encrypted
+      let imageUrl = cardData.imageUrl || null;
+      if (imageUrl && cardData.imageEncrypted) {
+        // Use our public decryption endpoint instead of direct storage URL
+        imageUrl = `${SHARE_BASE_URL}/api/sharefolders/public/${token}/image/${doc.id}`;
       }
 
       // Return card data (including CVV as per user requirements)
@@ -508,7 +528,8 @@ router.get('/public/:token', async (req, res) => {
         expiryDate: cardData.expiryDate || null,
         cvv: cardData.cvv || null, // Include CVV as requested
         bank: cardData.bank || null,
-        imageUrl: cardData.imageUrl || null,
+        imageUrl: imageUrl,
+        imageEncrypted: cardData.imageEncrypted || false,
         // Don't expose: userId, encrypted flag, timestamps
       };
     }));
@@ -532,6 +553,96 @@ router.get('/public/:token', async (req, res) => {
       error: 'Failed to load shared folder',
       message: 'An error occurred while loading this share.'
     });
+  }
+});
+
+/**
+ * GET /api/sharefolders/public/:token/image/:cardId
+ * Get decrypted image for a shared card (PUBLIC - No authentication required)
+ */
+router.get('/public/:token/image/:cardId', async (req, res) => {
+  try {
+    const { token, cardId } = req.params;
+
+    // Find folder by share token
+    const snapshot = await db.collection('shareFolders')
+      .where('shareToken', '==', token)
+      .where('isPublic', '==', true)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      logger.warn(`Invalid share token for image request: ${token}`);
+      return res.status(404).json({ error: 'Share link not found or has been revoked' });
+    }
+
+    const folderData = snapshot.docs[0].data();
+
+    // Check if share has expired
+    if (folderData.expiresAt && isExpired(folderData.expiresAt)) {
+      logger.warn(`Expired share token for image request: ${token}`);
+      return res.status(410).json({ error: 'Share link has expired' });
+    }
+
+    // Verify card is in the shared folder
+    if (!folderData.cardIds || !folderData.cardIds.includes(cardId)) {
+      logger.warn(`Card ${cardId} not in shared folder for token ${token}`);
+      return res.status(403).json({ error: 'Card not in shared folder' });
+    }
+
+    // Get card document
+    const cardDoc = await db.collection('cards').doc(cardId).get();
+    if (!cardDoc.exists) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+
+    const cardData = cardDoc.data();
+
+    // Check if card has an image
+    if (!cardData.imageUrl) {
+      return res.status(404).json({ error: 'Card has no image' });
+    }
+
+    // If image is not encrypted, redirect to Firebase Storage URL
+    if (!cardData.imageEncrypted) {
+      logger.info(`Serving unencrypted image for shared card ${cardId}`);
+      return res.redirect(cardData.imageUrl);
+    }
+
+    // Decrypt and serve encrypted image
+    if (ENCRYPTION_ENABLED) {
+      try {
+        logger.info(`Decrypting shared image for card: ${cardId}`);
+        
+        // Get bucket from storage
+        const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+        const bucket = admin.storage().bucket(bucketName);
+        
+        // Get decrypted image buffer
+        const decryptedBuffer = await getDecryptedImageBuffer(bucket, cardData.imageUrl);
+        
+        // Serve as image with caching
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour (public share)
+        res.send(decryptedBuffer);
+        
+        logger.info(`Shared image decrypted and served successfully for card ${cardId}`);
+      } catch (decryptError) {
+        logger.error('Shared image decryption failed:', decryptError.message);
+        return res.status(500).json({ 
+          error: 'Failed to decrypt image',
+          message: 'Image decryption failed.'
+        });
+      }
+    } else {
+      return res.status(500).json({ 
+        error: 'Encryption not configured',
+        message: 'Image is encrypted but encryption key is not available.'
+      });
+    }
+  } catch (error) {
+    logger.error('Error serving shared card image:', error.message);
+    res.status(500).json({ error: 'Failed to retrieve image' });
   }
 });
 

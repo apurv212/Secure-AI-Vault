@@ -47,3 +47,4 @@ IMAGE_COMPRESSION_ENCRYPTION_GUIDE.md
 
 ZMDFILE/
 deploy.sh
+test-rate-limit.js
