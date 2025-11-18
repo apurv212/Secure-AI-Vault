@@ -145,68 +145,14 @@ app.use('/api/extract', extractionLimiter, require('./routes/extract'));
 // Share folder routes (authenticated + public endpoints)
 app.use('/api/sharefolders', cardOperationsLimiter, require('./routes/sharefolders'));
 
-// Public configuration routes (no auth, still rate limited)
-app.use('/api/config', require('./routes/config'));
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
-});
-
-// Serve static files from React build (for production)
-// This must come AFTER all API routes
-const clientBuildPath = path.join(__dirname, 'client-build');
-
-// Log the build path for debugging
-logger.info(`Static files path: ${clientBuildPath}`);
-
-// Serve static files with proper configuration
-app.use(express.static(clientBuildPath, {
-  maxAge: '1d', // Cache static assets for 1 day
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filepath) => {
-    // Set correct MIME types for static assets
-    if (filepath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-    } else if (filepath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css; charset=utf-8');
-    } else if (filepath.endsWith('.html')) {
-      // Don't cache HTML files
-      res.setHeader('Cache-Control', 'no-cache');
-    } else if (filepath.endsWith('.json')) {
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    }
-  }
-}));
-
-// Handle React routing - send all non-API requests to index.html
-// This allows React Router to handle routes like /shared/:token
-app.get('*', (req, res) => {
-  // Don't serve index.html for API routes
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  
-  const indexPath = path.join(clientBuildPath, 'index.html');
-  
-  // Log for debugging
-  logger.info(`Serving index.html for route: ${req.path}`);
-  
-  // Send the index.html file
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      logger.error(`Error serving index.html: ${err.message}`);
-      logger.error(`Attempted path: ${indexPath}`);
-      res.status(500).send('Server error: Could not load application');
-    }
-  });
 });
 
 app.listen(PORT, () => {
   logger.system(`🚀 Server running on port ${PORT}`);
   logger.system(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.system(`🔐 CORS allowed origin: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
-  logger.system(`📁 Serving static files from: ${clientBuildPath}`);
 });
 
