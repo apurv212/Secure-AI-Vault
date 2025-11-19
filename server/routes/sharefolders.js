@@ -23,6 +23,19 @@ const SHARE_BASE_URL = (() => {
   return raw ? raw.replace(/\/$/, '') : 'http://localhost:5000';
 })();
 
+// Separate URL for API endpoints (always server URL, not client URL)
+const API_BASE_URL = (() => {
+  const candidates = [
+    process.env.SERVER_PUBLIC_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.SERVER_URL,
+    `http://localhost:${process.env.PORT || 5000}`
+  ];
+
+  const raw = candidates.find((value) => typeof value === 'string' && value.trim().length > 0);
+  return raw ? raw.replace(/\/$/, '') : 'http://localhost:5000';
+})();
+
 // ==================== MIDDLEWARE ====================
 
 // Verify authentication for private endpoints
@@ -515,7 +528,7 @@ router.get('/public/:token', async (req, res) => {
       let imageUrl = cardData.imageUrl || null;
       if (imageUrl && cardData.imageEncrypted) {
         // Use our public decryption endpoint instead of direct storage URL
-        imageUrl = `${SHARE_BASE_URL}/api/sharefolders/public/${token}/image/${doc.id}`;
+        imageUrl = `${API_BASE_URL}/api/sharefolders/public/${token}/image/${doc.id}`;
       }
 
       // Return card data (including CVV as per user requirements)
