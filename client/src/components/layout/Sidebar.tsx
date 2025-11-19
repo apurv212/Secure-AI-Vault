@@ -242,17 +242,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => card.id && onCardSelect(card.id)}
                 >
                   <div className="card-item-preview">
-                    {card.imageUrl ? (
-                      <img src={card.imageUrl} alt={card.cardName || card.type} />
-                    ) : (
-                      <div className="card-placeholder">
-                        <span className="material-symbols-outlined">
-                          {card.type === 'credit' || card.type === 'debit' ? 'credit_card' : 
-                           card.type === 'aadhar' ? 'badge' : 
-                           card.type === 'pan' ? 'description' : 'folder'}
-                        </span>
-                      </div>
-                    )}
+                    <div className="card-placeholder">
+                      <span className="material-symbols-outlined">
+                        {card.type === 'credit' || card.type === 'debit' ? 'credit_card' : 
+                         card.type === 'aadhar' ? 'badge' : 
+                         card.type === 'pan' ? 'description' : 'folder'}
+                      </span>
+                    </div>
                   </div>
                   <div className="card-item-info">
                     <h4>{card.cardName || card.type.toUpperCase()}</h4>
