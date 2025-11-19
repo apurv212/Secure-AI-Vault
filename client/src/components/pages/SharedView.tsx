@@ -245,7 +245,15 @@ export const SharedView: React.FC = () => {
       <div className="shared-footer">
         <p>
           <span className="material-symbols-outlined">lock</span>
-          This is a secure share from Secure AI Vault
+          This is a secure share from{' '}
+          <a 
+            href="https://secure-ai-vault-1.onrender.com/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'underline' }}
+          >
+            click here
+          </a>
         </p>
       </div>
     </div>
