@@ -247,7 +247,7 @@ export const SharedView: React.FC = () => {
           <span className="material-symbols-outlined">lock</span>
           This is a secure share from{' '}
           <a 
-            href="https://secure-ai-vault-1.onrender.com/" 
+            href="https://secure-ai-vault.vercel.app/" 
             target="_blank" 
             rel="noopener noreferrer"
             style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'underline' }}
