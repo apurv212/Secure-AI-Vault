@@ -1,0 +1,47 @@
+# Multi-stage Dockerfile for Koyeb deployment
+# This builds both frontend and backend, then serves them together
+
+# Stage 1: Build Frontend
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/client
+
+# Copy frontend package files
+COPY client/package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy frontend source
+COPY client/ ./
+
+# Build frontend
+RUN npm run build
+
+# Stage 2: Setup Backend
+FROM node:18-alpine AS backend
+
+WORKDIR /app
+
+# Copy backend package files
+COPY server/package*.json ./
+
+# Install backend dependencies
+RUN npm ci --only=production
+
+# Copy backend source
+COPY server/ ./
+
+# Copy built frontend from previous stage
+COPY --from=frontend-builder /app/client/build ./client-build
+
+# Expose port (Koyeb will map this)
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:8000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start the server
+CMD ["node", "index.js"]
+

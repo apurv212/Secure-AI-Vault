@@ -150,6 +150,21 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
+// Serve static files from client-build (for production deployment)
+if (process.env.NODE_ENV === 'production') {
+  const clientBuildPath = path.join(__dirname, 'client-build');
+  
+  // Serve static files
+  app.use(express.static(clientBuildPath));
+  
+  // Handle React routing - send all non-API requests to index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+  
+  logger.system('📦 Serving static frontend from client-build/');
+}
+
 app.listen(PORT, () => {
   logger.system(`🚀 Server running on port ${PORT}`);
   logger.system(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

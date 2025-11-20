@@ -1,0 +1,43 @@
+# Node modules
+node_modules/
+*/node_modules/
+
+# Build files
+client/build/
+client/dist/
+
+# Development files
+.git/
+.gitignore
+*.md
+ZMDFILE/
+
+# Environment files (will be set in Koyeb)
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+*.test.js
+*.spec.js
+test/
+__tests__/
+
+# Deployment scripts
+deploy.sh
+test-*.js
+
