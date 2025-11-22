@@ -12,6 +12,9 @@ const { csrfProtection, getCsrfToken } = require('./utils/csrfProtection');
 dotenv.config();
 
 const app = express();
+// Behind a proxy (e.g., Koyeb, Render, Heroku) we must trust the proxy
+// so that IPs and rate limiting work correctly and do not throw warnings.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 // Health check endpoint (before CORS) - allows platform health checks without origin

@@ -24,7 +24,10 @@ const {
   // Use __Host- prefix only in production (requires HTTPS)
   cookieName: isProduction ? '__Host-psifi.x-csrf-token' : 'x-csrf-token',
   cookieOptions: {
-    sameSite: 'strict',     // Strict same-site policy
+    // In development (localhost client + API) we can use Strict.
+    // In production the client and API are on different domains (Vercel + Koyeb),
+    // so we must use SameSite=None for the CSRF cookie to be sent cross-site.
+    sameSite: isProduction ? 'none' : 'strict',
     path: '/',
     secure: isProduction,   // Secure only in production (requires HTTPS)
     httpOnly: true,         // Prevent XSS access
