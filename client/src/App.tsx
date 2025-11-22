@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store';
@@ -8,6 +8,7 @@ import { Login } from './components/pages/Login';
 import { Dashboard } from './components/pages/Dashboard';
 import { SharedView } from './components/pages/SharedView';
 import { Loading } from './components/ui/Loading';
+import { initCsrfProtection } from './services/api';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -56,6 +57,13 @@ const AppContent: React.FC = () => {
 };
 
 function App() {
+  // Initialize CSRF protection on app mount
+  useEffect(() => {
+    initCsrfProtection().catch(err => {
+      console.error('Failed to initialize CSRF protection:', err);
+    });
+  }, []);
+
   return (
     <Provider store={store}>
       <AuthProvider>

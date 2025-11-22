@@ -4,46 +4,62 @@ const dotenv = require('dotenv');
 const admin = require('firebase-admin');
 const path = require('path');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const logger = require('./utils/secureLogger');
 const { generalLimiter, authLimiter, extractionLimiter, cardOperationsLimiter } = require('./utils/rateLimiter');
+const { csrfProtection, getCsrfToken } = require('./utils/csrfProtection');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Health check endpoint (before CORS) - allows platform health checks without origin
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Server is running' });
+});
+
 // CORS Configuration - Restrict to specific origins
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
+      // Production origins
+      'https://secure-ai-vault.vercel.app',
+      'https://ai-vault-a3c99.firebaseapp.com',
+      'https://ai-vault-a3c99.web.app',
+      'https://exceptional-carilyn-apurv-051f3537.koyeb.app',
+      // Development origins
       process.env.CLIENT_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:5173', // Vite default
     ];
     
-    // Allow requests with no origin (health checks, direct API calls, server-to-server)
-    // This is safe and necessary for Render health checks and direct API access
+    // Only allow no-origin requests for health checks (handled separately)
+    // All other requests must have a valid origin
     if (!origin) {
-      return callback(null, true);
+      // Reject requests with no origin to prevent CORS bypass
+      logger.warn('CORS blocked request with no origin header');
+      return callback(new Error('Not allowed by CORS - Origin required'));
     }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      logger.warn('CORS blocked request from origin:', origin);
+      logger.warn('CORS blocked request from unauthorized origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 };
 
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '20mb' })); // Add size limit to prevent DoS attacks (20MB for compressed images)
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(cookieParser()); // Required for CSRF protection
 
 // Security Headers with Helmet
 app.use(helmet({
@@ -72,6 +88,10 @@ app.use(helmet({
         "https://*.firebaseio.com", // Firebase Realtime Database (if used)
         "https://*.cloudfunctions.net", // Firebase Cloud Functions (if used)
         "wss://*.firebaseio.com", // WebSocket connections for Firebase
+        "https://secure-ai-vault.vercel.app", // Production frontend
+        "https://ai-vault-a3c99.firebaseapp.com", // Firebase hosting
+        "https://ai-vault-a3c99.web.app", // Firebase hosting
+        "https://exceptional-carilyn-apurv-051f3537.koyeb.app", // Backend API
         process.env.CLIENT_URL || 'http://localhost:3000'
       ],
       fontSrc: [
@@ -101,6 +121,25 @@ logger.info('🛡️  Security headers enabled with Helmet');
 
 // Apply general rate limiting to all API routes
 app.use('/api/', generalLimiter);
+
+// CSRF Token endpoint - Must be before CSRF protection middleware
+// This endpoint generates and returns CSRF token to clients
+app.get('/api/csrf-token', (req, res) => {
+  try {
+    const token = getCsrfToken(req, res);
+    res.json({ csrfToken: token });
+    logger.debug('CSRF token provided to client');
+  } catch (error) {
+    logger.error('Failed to generate CSRF token:', error.message);
+    res.status(500).json({ error: 'Failed to generate security token' });
+  }
+});
+
+// Apply CSRF protection to all state-changing API routes
+// GET, HEAD, OPTIONS are excluded (safe methods)
+app.use('/api/', csrfProtection);
+
+logger.info('🛡️  CSRF protection enabled for all API routes');
 
 // Initialize Firebase Admin
 try {
@@ -144,11 +183,6 @@ app.use('/api/extract', extractionLimiter, require('./routes/extract'));
 
 // Share folder routes (authenticated + public endpoints)
 app.use('/api/sharefolders', cardOperationsLimiter, require('./routes/sharefolders'));
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
-});
 
 // Serve static files from client-build (for production deployment)
 if (process.env.NODE_ENV === 'production') {

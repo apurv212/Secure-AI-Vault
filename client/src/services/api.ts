@@ -1,7 +1,41 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { Card, ExtractionResult } from '../types/card';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// CSRF Token Management
+let csrfToken: string | null = null;
+
+/**
+ * Fetch CSRF token from server
+ * This should be called on app initialization and after token expiry
+ */
+const fetchCsrfToken = async (): Promise<string> => {
+  try {
+    const response = await axios.get(`${API_URL}/csrf-token`, {
+      withCredentials: true // Important for cookie-based CSRF
+    });
+    const token = response.data.csrfToken as string;
+    csrfToken = token;
+    return token;
+  } catch (error) {
+    console.error('Failed to fetch CSRF token:', error);
+    throw error;
+  }
+};
+
+/**
+ * Initialize CSRF token on app start
+ * Call this when the app loads
+ */
+export const initCsrfProtection = async (): Promise<void> => {
+  try {
+    await fetchCsrfToken();
+    console.log('CSRF protection initialized');
+  } catch (error) {
+    console.error('Failed to initialize CSRF protection:', error);
+  }
+};
 
 const getAuthHeaders = (token: string | null) => {
   return {
@@ -35,13 +69,64 @@ const handleRateLimitError = (error: AxiosError<RateLimitError>): never => {
   throw error;
 };
 
-// Add axios interceptor to handle rate limit errors globally
+// Configure axios to send cookies with all requests (required for CSRF)
+axios.defaults.withCredentials = true;
+
+// Add axios request interceptor to include CSRF token
+axios.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    // Only add CSRF token for state-changing methods
+    const needsCsrf = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase() || '');
+    
+    if (needsCsrf) {
+      // If we don't have a token yet, fetch it
+      if (!csrfToken) {
+        try {
+          await fetchCsrfToken();
+        } catch (error) {
+          console.error('Failed to fetch CSRF token:', error);
+        }
+      }
+      
+      // Add CSRF token to request headers
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add axios response interceptor to handle rate limit and CSRF errors
 axios.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<RateLimitError>) => {
+  async (error: AxiosError<RateLimitError>) => {
+    // Handle rate limit errors
     if (error.response?.status === 429) {
       return Promise.reject(handleRateLimitError(error));
     }
+    
+    // Handle CSRF token errors - refetch token and retry once
+    if (error.response?.status === 403 && 
+        error.response?.data?.error === 'Invalid CSRF token') {
+      try {
+        // Refetch CSRF token
+        await fetchCsrfToken();
+        
+        // Retry the original request with new token
+        if (error.config) {
+          error.config.headers['X-CSRF-Token'] = csrfToken;
+          return axios.request(error.config);
+        }
+      } catch (retryError) {
+        console.error('Failed to refresh CSRF token:', retryError);
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
